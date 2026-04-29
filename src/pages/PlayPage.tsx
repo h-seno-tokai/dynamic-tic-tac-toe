@@ -4,6 +4,7 @@ import { ArrowLeft, Flag, RotateCcw } from 'lucide-react';
 import { Board, MoveHistory, ReserveStack } from '@/components/game';
 import { Button } from '@/components/primitives';
 import { selectFallbackMove } from '@/ai';
+import { UserAvatar } from '@/components/avatar';
 import { engine, type GameState, type Move, type Position } from '@/domain';
 import { playBgm, playSfx, stopBgm } from '@/infra';
 import { useGameStore, useSessionStore } from '@/stores';
@@ -62,6 +63,10 @@ export const PlayPage = () => {
     currentGame.toMove === 'P1'
       ? (session.lastP1Name ?? 'Player 1')
       : (session.lastP2Name ?? 'Player 2');
+  const currentAvatarSeed =
+    currentGame.toMove === 'P1'
+      ? (session.lastP1AvatarId ?? 'haru')
+      : (session.lastP2AvatarId ?? 'aoi');
 
   const highlight = legalMoves
     .filter((move) => {
@@ -133,14 +138,17 @@ export const PlayPage = () => {
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl px-4 py-4">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-accent">
-            {mode === 'cpu' ? 'CPU対戦' : 'ローカル対戦'}
-          </p>
-          <h1 className="text-2xl font-bold tracking-normal">{currentName} の手番</h1>
-          <p role="status" className="mt-1 text-sm text-muted">
-            {isCpuTurn ? 'CPU が考えています…' : message}
-          </p>
+        <div className="flex items-center gap-3">
+          <UserAvatar seed={currentAvatarSeed} size={48} label={currentName} />
+          <div>
+            <p className="text-sm font-medium text-accent">
+              {mode === 'cpu' ? 'CPU対戦' : 'ローカル対戦'}
+            </p>
+            <h1 className="text-2xl font-bold tracking-normal">{currentName} の手番</h1>
+            <p role="status" className="mt-1 text-sm text-muted">
+              {isCpuTurn ? 'CPU が考えています…' : message}
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="ghost" size="sm" iconLeft={<ArrowLeft className="h-4 w-4" />}>
