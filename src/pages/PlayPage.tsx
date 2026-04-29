@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Flag, RotateCcw } from 'lucide-react';
@@ -25,6 +26,7 @@ function topOwnerAt(state: GameState, pos: Position) {
 }
 
 export const PlayPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const {
     currentGame,
@@ -40,7 +42,7 @@ export const PlayPage = () => {
   const session = useSessionStore();
   const recordGame = useStatsStore((s) => s.recordGame);
   const [selection, setSelection] = useState<Selection>(null);
-  const [message, setMessage] = useState('手駒か盤上の自分の駒を選んでください。');
+  const [message, setMessage] = useState('');
   const [invalidFlash, setInvalidFlash] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [aiReady, setAiReady] = useState(false);
@@ -155,11 +157,11 @@ export const PlayPage = () => {
     if (applyMove(move)) {
       playSfx('place');
       setSelection(null);
-      setMessage('手を進めました。');
+      setMessage(t('play.moved'));
       return;
     }
     playSfx('invalid');
-    setMessage('その手は無理です！');
+    setMessage(t('play.invalid'));
     setInvalidFlash(true);
     setTimeout(() => setInvalidFlash(false), 600);
   };
@@ -180,7 +182,7 @@ export const PlayPage = () => {
     if (selection?.kind === 'board') {
       if (samePosition(selection.from, pos)) {
         setSelection(null);
-        setMessage('選択を解除しました。');
+        setMessage(t('play.deselect'));
         return;
       }
       tryApply({
@@ -195,9 +197,9 @@ export const PlayPage = () => {
     if (topOwnerAt(currentGame, pos) === currentGame.toMove) {
       playSfx('pickup');
       setSelection({ kind: 'board', from: pos });
-      setMessage('移動先を選んでください。');
+      setMessage(t('play.moveMsg'));
     } else {
-      setMessage('まず手駒、または見えている自分の駒を選んでください。');
+      setMessage(t('play.selectFirst'));
     }
   };
 
@@ -205,7 +207,7 @@ export const PlayPage = () => {
     if (isCpuTurn) return;
     playSfx('pickup');
     setSelection({ kind: 'reserve', sizeId });
-    setMessage('配置先を選んでください。');
+    setMessage(t('play.placeMsg'));
   };
 
   const handleRematch = () => {
@@ -219,7 +221,7 @@ export const PlayPage = () => {
     }
     setShowResult(false);
     setSelection(null);
-    setMessage('手駒か盤上の自分の駒を選んでください。');
+    setMessage(t('play.chooseMsg'));
   };
 
   const handleMenu = () => {
@@ -234,17 +236,23 @@ export const PlayPage = () => {
           <UserAvatar seed={currentAvatarSeed} size={48} label={currentName} />
           <div>
             <p className="text-sm font-medium text-accent">
-              {mode === 'cpu' ? 'CPU対戦' : 'ローカル対戦'}
+              {mode === 'cpu' ? t('play.cpuMode') : t('play.localMode')}
             </p>
-            <h1 className="text-2xl font-bold tracking-normal">{currentName} の手番</h1>
+            <h1 className="text-2xl font-bold tracking-normal">
+              {t('play.turn', { name: currentName })}
+            </h1>
             <p role="status" className="mt-1 text-sm text-muted">
-              {isCpuTurn ? (aiReady ? 'AI が考えています…' : 'AI モデル読み込み中…') : message}
+              {isCpuTurn
+                ? aiReady
+                  ? t('play.aiThinking')
+                  : t('play.aiLoading')
+                : message || t('play.chooseMsg')}
             </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="ghost" size="sm" iconLeft={<ArrowLeft className="h-4 w-4" />}>
-            <Link to="/">メニュー</Link>
+            <Link to="/">{t('play.menu')}</Link>
           </Button>
           <Button
             variant="secondary"
@@ -256,7 +264,7 @@ export const PlayPage = () => {
               setSelection(null);
             }}
           >
-            待った
+            {t('play.undo')}
           </Button>
           <Button
             variant="danger"
@@ -264,7 +272,7 @@ export const PlayPage = () => {
             iconLeft={<Flag className="h-4 w-4" />}
             onClick={surrender}
           >
-            投了
+            {t('play.surrender')}
           </Button>
         </div>
       </header>
@@ -281,7 +289,7 @@ export const PlayPage = () => {
               }
               {...(currentGame.toMove === 'P1' ? { onSelect: handleReserveSelect } : {})}
               disabled={isCpuTurn || currentGame.toMove !== 'P1'}
-              aria-label="P1 の手駒"
+              aria-label={t('play.p1reserve')}
             />
             <ReserveStack
               owner="P2"
@@ -292,7 +300,7 @@ export const PlayPage = () => {
               }
               {...(currentGame.toMove === 'P2' ? { onSelect: handleReserveSelect } : {})}
               disabled={isCpuTurn || currentGame.toMove !== 'P2'}
-              aria-label="P2 の手駒"
+              aria-label={t('play.p2reserve')}
             />
           </div>
 
@@ -329,11 +337,11 @@ export const PlayPage = () => {
 
         <aside className="grid content-start gap-3">
           <div className="rounded-lg border border-border p-3">
-            <p className="text-sm font-medium">局面</p>
+            <p className="text-sm font-medium">{t('play.position')}</p>
             <dl className="mt-2 grid grid-cols-2 gap-2 text-sm text-muted">
-              <dt>手数</dt>
+              <dt>{t('play.ply')}</dt>
               <dd>{currentGame.ply}</dd>
-              <dt>盤面</dt>
+              <dt>{t('play.board')}</dt>
               <dd>
                 {currentGame.rules.boardSize}x{currentGame.rules.boardSize}
               </dd>
@@ -361,14 +369,14 @@ export const PlayPage = () => {
               exit={{ scale: 0.8, opacity: 0, y: 24 }}
               transition={{ type: 'spring', stiffness: 260, damping: 22 }}
             >
-              <p className="text-sm font-medium text-accent">Result</p>
+              <p className="text-sm font-medium text-accent">{t('result.label')}</p>
               <motion.h2
                 className="mt-1 text-4xl font-bold tracking-normal"
                 initial={{ scale: 0.5, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
               >
-                勝負あり！
+                {t('result.title')}
               </motion.h2>
 
               <motion.div
@@ -378,7 +386,7 @@ export const PlayPage = () => {
                 transition={{ delay: 0.3, duration: 0.3 }}
               >
                 {outcome === 'draw' ? (
-                  <p className="text-2xl font-semibold">引き分け</p>
+                  <p className="text-2xl font-semibold">{t('result.draw')}</p>
                 ) : (
                   <div className="flex items-center gap-4">
                     {winnerAvatarSeed && winnerName !== 'AI' && (
@@ -386,9 +394,11 @@ export const PlayPage = () => {
                     )}
                     <div>
                       <p className="text-2xl font-bold">
-                        {winnerName === 'AI' ? 'AIの勝ち' : winnerName}
+                        {winnerName === 'AI' ? t('result.aiWins') : winnerName}
                       </p>
-                      {winnerName !== 'AI' && <p className="text-sm text-muted">の勝ち</p>}
+                      {winnerName !== 'AI' && (
+                        <p className="text-sm text-muted">{t('result.wins')}</p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -400,12 +410,12 @@ export const PlayPage = () => {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.45 }}
               >
-                <Button onClick={handleRematch}>再戦</Button>
+                <Button onClick={handleRematch}>{t('result.rematch')}</Button>
                 <Button variant="secondary" onClick={handleMenu}>
-                  メニューへ
+                  {t('result.backToMenu')}
                 </Button>
                 <Button variant="ghost" onClick={() => setShowResult(false)}>
-                  盤面を見る
+                  {t('result.viewBoard')}
                 </Button>
               </motion.div>
             </motion.div>

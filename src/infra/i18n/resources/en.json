@@ -5,11 +5,72 @@
     "confirm": "Confirm",
     "back": "Back",
     "close": "Close",
-    "ok": "OK"
+    "ok": "OK",
+    "backToMenu": "Back to menu"
   },
   "title": {
     "appName": "Dynamic Tic-Tac-Toe",
-    "tagline": "A dynamic take on Tic-Tac-Toe"
+    "tagline": "Gobblet inspired board game",
+    "description": "Stack pieces by size to line up your visible pieces in a row.",
+    "menu": {
+      "local": "Local 2-Player",
+      "localDesc": "Take turns on the same device.",
+      "cpu": "vs CPU",
+      "cpuDesc": "Challenge an AI trained via reinforcement learning.",
+      "rules": "Rules",
+      "rulesDesc": "Learn about covering and winning conditions.",
+      "stats": "Stats",
+      "statsDesc": "View your record by CPU difficulty.",
+      "settings": "Settings",
+      "settingsDesc": "Change theme, volume, and language."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "bgm": "BGM",
+    "bgmVolume": "BGM volume",
+    "sfx": "Sound effects",
+    "sfxVolume": "SFX volume",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "language": "Language",
+    "languageJa": "日本語",
+    "languageEn": "English",
+    "reset": "Reset to defaults"
+  },
+  "play": {
+    "localMode": "Local match",
+    "cpuMode": "CPU match",
+    "turn": "{{name}}'s turn",
+    "aiThinking": "AI is thinking…",
+    "aiLoading": "Loading AI model…",
+    "chooseMsg": "Choose a piece from reserve or board.",
+    "moveMsg": "Choose a destination.",
+    "placeMsg": "Choose where to place it.",
+    "deselect": "Selection cleared.",
+    "moved": "Move made.",
+    "invalid": "Invalid move!",
+    "selectFirst": "Select your own visible piece or a reserve piece first.",
+    "menu": "Menu",
+    "undo": "Undo",
+    "surrender": "Resign",
+    "position": "Position",
+    "ply": "Ply",
+    "board": "Board",
+    "p1reserve": "P1 reserve",
+    "p2reserve": "P2 reserve"
+  },
+  "result": {
+    "label": "Result",
+    "title": "Game over!",
+    "wins": "wins",
+    "aiWins": "AI wins",
+    "draw": "Draw",
+    "rematch": "Rematch",
+    "backToMenu": "Back to menu",
+    "viewBoard": "View board"
   },
   "menu": {
     "localPlay": "Local 2-Player",
@@ -20,29 +81,12 @@
     "rules": "Rules"
   },
   "game": {
-    "surrender": "Surrender",
+    "surrender": "Resign",
     "undo": "Undo",
     "thinking": "Thinking...",
     "yourTurn": "Your turn",
     "cpuTurn": "CPU's turn",
     "choosePiece": "Choose a piece"
-  },
-  "result": {
-    "win": "You win",
-    "lose": "You lose",
-    "draw": "Draw",
-    "shoubuari": "Game over!"
-  },
-  "settings": {
-    "bgm": "BGM",
-    "sfx": "Sound effects",
-    "theme": "Theme",
-    "language": "Language",
-    "themeLight": "Light",
-    "themeDark": "Dark",
-    "themeSystem": "Follow system",
-    "languageJa": "日本語",
-    "languageEn": "English"
   },
   "preset": {
     "p3x3": "3x3 Classic",

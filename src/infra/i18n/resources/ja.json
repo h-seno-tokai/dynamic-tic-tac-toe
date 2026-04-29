@@ -5,11 +5,72 @@
     "confirm": "決定",
     "back": "戻る",
     "close": "閉じる",
-    "ok": "OK"
+    "ok": "OK",
+    "backToMenu": "メニューへ"
   },
   "title": {
     "appName": "Dynamic Tic-Tac-Toe",
-    "tagline": "動的な三目並べ"
+    "tagline": "Gobblet inspired board game",
+    "description": "サイズ違いの駒を重ねて、見えている自分の駒を一列に並べる対戦ゲームです。",
+    "menu": {
+      "local": "ローカル2人対戦",
+      "localDesc": "同じ端末で交互に手を進めます。",
+      "cpu": "CPU対戦",
+      "cpuDesc": "強化学習で訓練したAIと対戦します。",
+      "rules": "ルール",
+      "rulesDesc": "覆い被せと勝利条件を確認します。",
+      "stats": "戦績",
+      "statsDesc": "CPU難易度別の記録を表示します。",
+      "settings": "設定",
+      "settingsDesc": "テーマ、音量、言語を変更します。"
+    }
+  },
+  "settings": {
+    "title": "設定",
+    "bgm": "BGM",
+    "bgmVolume": "BGM音量",
+    "sfx": "効果音",
+    "sfxVolume": "効果音音量",
+    "theme": "テーマ",
+    "themeLight": "ライト",
+    "themeDark": "ダーク",
+    "themeSystem": "システム",
+    "language": "言語",
+    "languageJa": "日本語",
+    "languageEn": "English",
+    "reset": "初期値に戻す"
+  },
+  "play": {
+    "localMode": "ローカル対戦",
+    "cpuMode": "CPU対戦",
+    "turn": "{{name}} の手番",
+    "aiThinking": "AI が考えています…",
+    "aiLoading": "AI モデル読み込み中…",
+    "chooseMsg": "手駒か盤上の自分の駒を選んでください。",
+    "moveMsg": "移動先を選んでください。",
+    "placeMsg": "配置先を選んでください。",
+    "deselect": "選択を解除しました。",
+    "moved": "手を進めました。",
+    "invalid": "その手は無理です！",
+    "selectFirst": "まず手駒、または見えている自分の駒を選んでください。",
+    "menu": "メニュー",
+    "undo": "待った",
+    "surrender": "投了",
+    "position": "局面",
+    "ply": "手数",
+    "board": "盤面",
+    "p1reserve": "P1 の手駒",
+    "p2reserve": "P2 の手駒"
+  },
+  "result": {
+    "label": "Result",
+    "title": "勝負あり！",
+    "wins": "の勝ち",
+    "aiWins": "AIの勝ち",
+    "draw": "引き分け",
+    "rematch": "再戦",
+    "backToMenu": "メニューへ",
+    "viewBoard": "盤面を見る"
   },
   "menu": {
     "localPlay": "2人で対戦",
@@ -26,23 +87,6 @@
     "yourTurn": "あなたの番です",
     "cpuTurn": "CPUの番です",
     "choosePiece": "駒を選んでください"
-  },
-  "result": {
-    "win": "勝ち",
-    "lose": "負け",
-    "draw": "引き分け",
-    "shoubuari": "勝負あり！"
-  },
-  "settings": {
-    "bgm": "BGM",
-    "sfx": "効果音",
-    "theme": "テーマ",
-    "language": "言語",
-    "themeLight": "ライト",
-    "themeDark": "ダーク",
-    "themeSystem": "システム設定に従う",
-    "languageJa": "日本語",
-    "languageEn": "English"
   },
   "preset": {
     "p3x3": "3x3 クラシック",

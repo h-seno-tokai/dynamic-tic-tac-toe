@@ -1,48 +1,51 @@
+import { useTranslation } from 'react-i18next';
 import { Bot, ChartNoAxesColumn, Gamepad2, Settings, UsersRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const menuItems = [
-  {
-    to: '/local/setup',
-    label: 'ローカル2人対戦',
-    description: '同じ端末で交互に手を進めます。',
-    icon: <UsersRound className="h-5 w-5" />,
-  },
-  {
-    to: '/cpu/setup',
-    label: 'CPU対戦',
-    description: '強化学習で訓練したAIと対戦します。',
-    icon: <Bot className="h-5 w-5" />,
-  },
-  {
-    to: '/rules',
-    label: 'ルール',
-    description: '覆い被せと勝利条件を確認します。',
-    icon: <Gamepad2 className="h-5 w-5" />,
-  },
-  {
-    to: '/stats',
-    label: '戦績',
-    description: 'CPU難易度別の記録を表示します。',
-    icon: <ChartNoAxesColumn className="h-5 w-5" />,
-  },
-  {
-    to: '/settings',
-    label: '設定',
-    description: 'テーマ、音量、言語を変更します。',
-    icon: <Settings className="h-5 w-5" />,
-  },
-];
-
 export const TitlePage = () => {
+  const { t } = useTranslation();
+
+  const menuItems = [
+    {
+      to: '/local/setup',
+      label: t('title.menu.local'),
+      description: t('title.menu.localDesc'),
+      icon: <UsersRound className="h-5 w-5" />,
+    },
+    {
+      to: '/cpu/setup',
+      label: t('title.menu.cpu'),
+      description: t('title.menu.cpuDesc'),
+      icon: <Bot className="h-5 w-5" />,
+    },
+    {
+      to: '/rules',
+      label: t('title.menu.rules'),
+      description: t('title.menu.rulesDesc'),
+      icon: <Gamepad2 className="h-5 w-5" />,
+    },
+    {
+      to: '/stats',
+      label: t('title.menu.stats'),
+      description: t('title.menu.statsDesc'),
+      icon: <ChartNoAxesColumn className="h-5 w-5" />,
+    },
+    {
+      to: '/settings',
+      label: t('title.menu.settings'),
+      description: t('title.menu.settingsDesc'),
+      icon: <Settings className="h-5 w-5" />,
+    },
+  ];
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-5 py-6">
       <header className="pb-8 pt-12">
-        <p className="text-sm font-medium text-accent">Gobblet inspired board game</p>
-        <h1 className="mt-2 text-4xl font-bold tracking-normal md:text-6xl">Dynamic Tic-Tac-Toe</h1>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
-          サイズ違いの駒を重ねて、見えている自分の駒を一列に並べる対戦ゲームです。
-        </p>
+        <p className="text-sm font-medium text-accent">{t('title.tagline')}</p>
+        <h1 className="mt-2 text-4xl font-bold tracking-normal md:text-6xl">
+          {t('title.appName')}
+        </h1>
+        <p className="mt-4 max-w-2xl text-base leading-7 text-muted">{t('title.description')}</p>
       </header>
 
       <section className="grid gap-3 pb-8 md:grid-cols-2">

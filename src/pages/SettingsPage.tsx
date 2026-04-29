@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Button, RadioGroup, Slider, Toggle } from '@/components/primitives';
 import { useSettingsStore } from '@/stores';
 
 export const SettingsPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const settings = useSettingsStore();
 
@@ -10,38 +12,38 @@ export const SettingsPage = () => {
     <main className="mx-auto min-h-screen w-full max-w-3xl px-5 py-6">
       <header className="mb-8">
         <p className="text-sm font-medium text-accent">Settings</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-normal">設定</h1>
+        <h1 className="mt-2 text-3xl font-bold tracking-normal">{t('settings.title')}</h1>
       </header>
 
       <div className="grid gap-5">
         <RadioGroup
-          label="テーマ"
+          label={t('settings.theme')}
           value={settings.theme}
           onChange={settings.setTheme}
           options={[
-            { value: 'system', label: 'システム' },
-            { value: 'light', label: 'ライト' },
-            { value: 'dark', label: 'ダーク' },
+            { value: 'system', label: t('settings.themeSystem') },
+            { value: 'light', label: t('settings.themeLight') },
+            { value: 'dark', label: t('settings.themeDark') },
           ]}
         />
 
         <RadioGroup
-          label="言語"
+          label={t('settings.language')}
           value={settings.language}
           onChange={settings.setLanguage}
           options={[
-            { value: 'ja', label: '日本語' },
-            { value: 'en', label: 'English' },
+            { value: 'ja', label: t('settings.languageJa') },
+            { value: 'en', label: t('settings.languageEn') },
           ]}
         />
 
         <Toggle
-          label="BGM"
+          label={t('settings.bgm')}
           checked={settings.bgmEnabled}
           onCheckedChange={settings.setBgmEnabled}
         />
         <Slider
-          label="BGM音量"
+          label={t('settings.bgmVolume')}
           min={0}
           max={1}
           step={0.05}
@@ -50,12 +52,12 @@ export const SettingsPage = () => {
         />
 
         <Toggle
-          label="効果音"
+          label={t('settings.sfx')}
           checked={settings.sfxEnabled}
           onCheckedChange={settings.setSfxEnabled}
         />
         <Slider
-          label="効果音音量"
+          label={t('settings.sfxVolume')}
           min={0}
           max={1}
           step={0.05}
@@ -65,10 +67,10 @@ export const SettingsPage = () => {
 
         <div className="flex flex-wrap gap-3 pt-2">
           <Button variant="secondary" onClick={settings.reset}>
-            初期値に戻す
+            {t('settings.reset')}
           </Button>
           <Button variant="ghost" onClick={() => navigate('/')}>
-            メニューへ
+            {t('common.backToMenu')}
           </Button>
         </div>
       </div>
