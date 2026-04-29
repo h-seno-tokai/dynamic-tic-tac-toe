@@ -47,7 +47,7 @@ export const Cell = forwardRef<HTMLDivElement, CellProps>(function Cell(
     disabled = false,
     tabIndex = -1,
     onKeyDown,
-    pieceDisplaySize = 'md',
+    pieceDisplaySize = 'fill',
     'aria-label': ariaLabelProp,
   },
   ref,
@@ -107,7 +107,7 @@ export const Cell = forwardRef<HTMLDivElement, CellProps>(function Cell(
           <Piece
             size={resolvedTopSize}
             owner={top.owner}
-            displaySize={pieceDisplaySize ?? 'fill'}
+            displaySize={pieceDisplaySize}
             disabled={disabled}
           />
         </motion.div>
