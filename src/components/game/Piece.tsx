@@ -88,6 +88,12 @@ export const Piece: FC<PieceProps> = ({
 
   const sizeStyle: CSSProperties = { width: px, height: px };
 
+  // Inner concentric rings: rank tells how many rings to draw.
+  // Rings divide the interior evenly, making size hierarchy instantly visible.
+  const ringCount = size.rank;
+  const ringStrokeWidth = Math.max(2.5, r * 0.11);
+  const rings = Array.from({ length: ringCount }, (_, i) => (r * (i + 1)) / (ringCount + 1));
+
   return (
     <span
       role="img"
@@ -108,6 +114,18 @@ export const Piece: FC<PieceProps> = ({
           strokeWidth={2}
           fillOpacity={0.85}
         />
+        {rings.map((innerR, i) => (
+          <circle
+            key={i}
+            cx={50}
+            cy={50}
+            r={innerR}
+            fill="none"
+            stroke="white"
+            strokeWidth={ringStrokeWidth}
+            strokeOpacity={0.5}
+          />
+        ))}
       </svg>
     </span>
   );

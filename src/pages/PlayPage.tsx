@@ -3,7 +3,9 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Flag, RotateCcw } from 'lucide-react';
 import { Board, MoveHistory, ReserveStack } from '@/components/game';
 import { Button } from '@/components/primitives';
+import { selectFallbackMove } from '@/ai';
 import { engine, type GameState, type Move, type Position } from '@/domain';
+import { playBgm, playSfx, stopBgm } from '@/infra';
 import { useGameStore, useSessionStore } from '@/stores';
 
 type Selection = { kind: 'reserve'; sizeId: string } | { kind: 'board'; from: Position } | null;
@@ -20,16 +22,34 @@ function topOwnerAt(state: GameState, pos: Position) {
 
 export const PlayPage = () => {
   const navigate = useNavigate();
-  const { currentGame, mode, humanSide, applyMove, undo, surrender } = useGameStore();
+  const { currentGame, mode, humanSide, cpuDifficulty, applyMove, undo, surrender } =
+    useGameStore();
   const session = useSessionStore();
   const [selection, setSelection] = useState<Selection>(null);
   const [message, setMessage] = useState('手駒か盤上の自分の駒を選んでください。');
+
+  useEffect(() => {
+    playBgm('game');
+    return () => stopBgm();
+  }, []);
 
   useEffect(() => {
     if (currentGame?.outcome !== null && currentGame?.outcome !== undefined) {
       navigate('/result');
     }
   }, [currentGame?.outcome, navigate]);
+
+  const isCpuTurn = mode === 'cpu' && humanSide !== null && currentGame?.toMove !== humanSide;
+
+  useEffect(() => {
+    if (!isCpuTurn || currentGame?.outcome !== null) return;
+    const id = setTimeout(() => {
+      const move = selectFallbackMove(currentGame, cpuDifficulty ?? 5);
+      applyMove(move);
+      playSfx('place');
+    }, 700);
+    return () => clearTimeout(id);
+  }, [isCpuTurn, currentGame, cpuDifficulty, applyMove]);
 
   const legalMoves = useMemo(
     () => (currentGame ? engine.legalMoves(currentGame) : []),
@@ -38,7 +58,6 @@ export const PlayPage = () => {
 
   if (!currentGame) return <Navigate to="/" replace />;
 
-  const isCpuTurn = mode === 'cpu' && humanSide !== null && currentGame.toMove !== humanSide;
   const currentName =
     currentGame.toMove === 'P1'
       ? (session.lastP1Name ?? 'Player 1')
@@ -58,10 +77,12 @@ export const PlayPage = () => {
 
   const tryApply = (move: Move) => {
     if (applyMove(move)) {
+      playSfx('place');
       setSelection(null);
       setMessage('手を進めました。');
       return;
     }
+    playSfx('invalid');
     setMessage('その手は合法手ではありません。');
   };
 
@@ -94,6 +115,7 @@ export const PlayPage = () => {
     }
 
     if (topOwnerAt(currentGame, pos) === currentGame.toMove) {
+      playSfx('pickup');
       setSelection({ kind: 'board', from: pos });
       setMessage('移動先を選んでください。');
     } else {
@@ -103,6 +125,7 @@ export const PlayPage = () => {
 
   const handleReserveSelect = (sizeId: string) => {
     if (isCpuTurn) return;
+    playSfx('pickup');
     setSelection({ kind: 'reserve', sizeId });
     setMessage('配置先を選んでください。');
   };
@@ -116,7 +139,7 @@ export const PlayPage = () => {
           </p>
           <h1 className="text-2xl font-bold tracking-normal">{currentName} の手番</h1>
           <p role="status" className="mt-1 text-sm text-muted">
-            {isCpuTurn ? 'CPU接続待ちです。暫定CPUを接続中です。' : message}
+            {isCpuTurn ? 'CPU が考えています…' : message}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -128,6 +151,7 @@ export const PlayPage = () => {
             size="sm"
             iconLeft={<RotateCcw className="h-4 w-4" />}
             onClick={() => {
+              playSfx('undo');
               undo();
               setSelection(null);
             }}
