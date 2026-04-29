@@ -67,10 +67,10 @@ export const DEFAULT_RULES: GameRules = {
   piecesPerSize: [2, 2, 2],
   winCondition: { kind: "lineOfN", n: 3 },
   allowSameSizeCover: false,
-  allowSelfCover: false,
+  allowSelfCover: true,  // 標準 Gobblet 準拠: 自分の駒の上に被せ可
 };
 
-/** 4x4 拡張プリセット例 */
+/** 4x4 拡張プリセット例（極大追加） */
 export const RULES_4X4_XL: GameRules = {
   boardSize: 4,
   pieceSizes: [
@@ -82,8 +82,24 @@ export const RULES_4X4_XL: GameRules = {
   piecesPerSize: [2, 2, 2, 2],
   winCondition: { kind: "lineOfN", n: 4 },
   allowSameSizeCover: false,
-  allowSelfCover: false,
+  allowSelfCover: true,
 };
+
+/** AI ユニバーサルネットワークが対応する上限（学習時に固定） */
+export const AI_LIMITS = {
+  MAX_BOARD: 4,
+  MAX_PIECE_SIZES: 4,
+  MAX_PIECES_PER_SIZE: 3,
+} as const;
+
+/** ルールが AI で対戦可能か（範囲内か）を判定 */
+export function isRuleSupportedByAI(rules: GameRules): boolean {
+  return (
+    rules.boardSize <= AI_LIMITS.MAX_BOARD &&
+    rules.pieceSizes.length <= AI_LIMITS.MAX_PIECE_SIZES &&
+    rules.piecesPerSize.every((n) => n <= AI_LIMITS.MAX_PIECES_PER_SIZE)
+  );
+}
 
 // ============================================
 // プレイヤー・駒
@@ -190,19 +206,19 @@ export interface GameEngine {
 
 ## 4. AlphaZero との接続
 
-### 4.1 入力テンソル化（ユーザー単独決定だが、設計の枠組みのみ提示）
-- 入力次元は `boardSize × boardSize × C` のような形を想定
-- C = チャンネル数。サイズ段階数 × プレイヤー数 + 補助プレーン
-- ルールが拡張されるとモデル再学習が必要（重みの再生成）
-- → **ルール毎に学習済みモデルを用意する必要があるか**を判断する必要あり。当面は既定ルール (3x3 大中小2個ずつ) でのみCPU対戦をサポートし、4x4 等カスタムは「ローカル2人対戦専用 + 簡易CPU（ランダム/ヒューリスティック）」とするのが現実的。
+### 4.1 入力テンソル化（ユニバーサルネットワーク方式）
+- 入力次元は **固定形状** `MAX_BOARD × MAX_BOARD × C`（MAX_BOARD = 4）
+- ルールが既定の 3x3 等の場合は、盤面範囲外を **out-of-board マスクチャネル**で「不可侵」と表現
+- 駒サイズも MAX_PIECE_SIZES = 4 まで対応するチャネル構成。未使用サイズはマスク
+- 詳細は `07_ai_design.md` 1.4 ユニバーサルネットワーク方式 参照
 
-### 4.2 行動空間
-- 全アクション = (手駒からの配置) + (盤上の移動)
-- 配置: `pieceSizes.length × boardSize²`
-- 移動: `boardSize² × boardSize²`（出発マス × 到着マス）
-- 合計次元 = `pieceSizes.length × boardSize² + boardSize⁴`
-- 既定ルールで: 3 × 9 + 81 = 108 次元
-- 4x4 + 4サイズで: 4 × 16 + 256 = 320 次元
+### 4.2 行動空間（固定）
+- 行動空間は **固定 320 次元**（MAX_PIECE_SIZES × MAX_BOARD² + MAX_BOARD⁴ = 4 × 16 + 256）
+- 内訳:
+  - PlaceFromReserve: 4 × 16 = 64
+  - MoveOnBoard: 16 × 16 = 256
+- 各ルールでは合法でない行動を **−∞ マスク** して softmax にかける
+- 既定ルール（3x3、3サイズ）で実際に有効な行動は 27 + 81 = 108 / 320
 
 ## 5. localStorage スキーマ
 
@@ -233,14 +249,15 @@ interface PersistedSession {
 
 すべて単一の名前空間プレフィックス（例: `dttt:`）で始める。バージョン管理キー `dttt:schemaVersion` を持ち、互換性のないスキーマ変更時はマイグレーションする。
 
-## 6. 未決事項
+## 6. 確定事項 / 未決事項
 
-ユーザー単独決定:
-- 勝利条件の正式定義（lineOfN で N = boardSize で良いか）
-- 覆い被せ可否（同サイズ・自分の駒）の最終仕様
-- 入力テンソル化の具体（チャンネル設計）
-- カスタムルール時の CPU 対応方針（同モデルで動かす？簡易AIで代替？）
+### 確定（今回）
+- 勝利条件: lineOfN で N = boardSize（縦・横・斜め）
+- 引き分け条件: 合法手なし（`legalMoves(state).length === 0` かつ未終局）
+- 覆い被せ: `allowSameSizeCover: false` / `allowSelfCover: true`（標準 Gobblet 準拠）
+- 盤外スタック: 単純なサイズ別カウント（取り出し順制約なし）
+- カスタムルール時の CPU: ユニバーサルネットワークで同モデル流用（AI_LIMITS 範囲内）
 
-こちら相談:
-- AlphaZero の行動空間の実装詳細（ベクトル化・マスキング）
-- リプレイ（履歴）データの永続化要否
+### 未決
+- 入力テンソル化のチャンネル設計詳細（ユーザー単独決定）
+- リプレイ（履歴）データを localStorage に永続化するか
