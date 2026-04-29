@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { RULE_PRESETS, type Player, type RulePresetId } from '@/domain';
 import { AvatarPicker, DEFAULT_AVATAR_SEEDS } from '@/components/avatar';
@@ -6,6 +7,7 @@ import { Button, RadioGroup, Slider } from '@/components/primitives';
 import { useGameStore, useSessionStore } from '@/stores';
 
 export const CpuSetupPage = () => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const startNewGame = useGameStore((state) => state.startNewGame);
   const session = useSessionStore();
@@ -15,6 +17,8 @@ export const CpuSetupPage = () => {
   const [humanSide, setHumanSide] = useState<Player>('P1');
   const [humanName, setHumanName] = useState(session.lastP1Name ?? 'Player 1');
   const [avatar, setAvatar] = useState(session.lastP1AvatarId ?? DEFAULT_AVATAR_SEEDS[0]);
+
+  const lang = i18n.language === 'en' ? 'en' : 'ja';
 
   // When humanSide changes, restore the previously saved name/avatar for that slot.
   useEffect(() => {
@@ -49,18 +53,16 @@ export const CpuSetupPage = () => {
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl px-5 py-6">
       <header className="mb-8">
-        <p className="text-sm font-medium text-accent">CPU match</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-normal">CPU対戦</h1>
-        <p className="mt-2 text-sm leading-6 text-muted">
-          強化学習で訓練したAIと対戦します。難易度を選んで挑戦してください。
-        </p>
+        <p className="text-sm font-medium text-accent">{t('setup.cpu.subtitle')}</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-normal">{t('setup.cpu.title')}</h1>
+        <p className="mt-2 text-sm leading-6 text-muted">{t('setup.cpu.desc')}</p>
       </header>
 
       <div className="grid gap-6">
         <fieldset className="grid gap-3">
-          <legend className="text-sm font-semibold">あなたのプロフィール</legend>
+          <legend className="text-sm font-semibold">{t('setup.profileLabel')}</legend>
           <label className="grid gap-1.5">
-            <span className="text-xs text-muted">名前</span>
+            <span className="text-xs text-muted">{t('setup.nameLabel')}</span>
             <input
               value={humanName}
               onChange={(e) => setHumanName(e.target.value)}
@@ -68,18 +70,18 @@ export const CpuSetupPage = () => {
             />
           </label>
           <div className="grid gap-1.5">
-            <span className="text-xs text-muted">アバター</span>
+            <span className="text-xs text-muted">{t('setup.avatarLabel')}</span>
             <AvatarPicker
               value={avatar}
               onChange={setAvatar}
-              label="プレイヤーアバター"
-              getSeedLabel={(seed) => `アバター ${seed}`}
+              label={t('setup.profileLabel')}
+              getSeedLabel={(seed) => t('setup.avatarSeedLabel', { seed })}
             />
           </div>
         </fieldset>
 
         <Slider
-          label={`難易度 ${difficulty}`}
+          label={t('setup.difficultyLabel', { level: difficulty })}
           min={1}
           max={10}
           step={1}
@@ -88,30 +90,30 @@ export const CpuSetupPage = () => {
         />
 
         <RadioGroup
-          label="あなたの手番"
+          label={t('setup.humanSideLabel')}
           value={humanSide}
           onChange={setHumanSide}
           options={[
-            { value: 'P1', label: '先手' },
-            { value: 'P2', label: '後手' },
+            { value: 'P1', label: t('setup.sideP1') },
+            { value: 'P2', label: t('setup.sideP2') },
           ]}
         />
 
         <RadioGroup
-          label="ルールプリセット"
+          label={t('setup.presetLabel')}
           value={presetId}
           onChange={setPresetId}
           options={RULE_PRESETS.map((preset) => ({
             value: preset.id,
-            label: preset.label.ja,
+            label: preset.label[lang],
             description: `${preset.rules.boardSize}x${preset.rules.boardSize}`,
           }))}
         />
 
         <div className="flex flex-wrap gap-3 pt-2">
-          <Button onClick={handleStart}>対局開始</Button>
+          <Button onClick={handleStart}>{t('setup.start')}</Button>
           <Button variant="secondary" onClick={() => navigate('/')}>
-            メニューへ
+            {t('common.backToMenu')}
           </Button>
         </div>
       </div>

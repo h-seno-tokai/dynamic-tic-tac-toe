@@ -64,7 +64,7 @@
   },
   "result": {
     "label": "Result",
-    "title": "Game over!",
+    "title": "It's decided!",
     "wins": "wins",
     "aiWins": "AI wins",
     "draw": "Draw",
@@ -87,6 +87,74 @@
     "yourTurn": "Your turn",
     "cpuTurn": "CPU's turn",
     "choosePiece": "Choose a piece"
+  },
+  "rules": {
+    "subtitle": "Rules",
+    "title": "Rules",
+    "desc": "A board game based on Gobblet Gobblers.",
+    "sections": [
+      {
+        "title": "Objective",
+        "body": "You win by lining up your pieces in a row — horizontally, vertically, or diagonally — while they are visible on the board. A piece covered by an opponent's piece does not count toward a winning line."
+      },
+      {
+        "title": "Piece sizes",
+        "body": "Each player has multiple pieces in three sizes: Small, Medium, and Large. A larger piece is stronger and can cover a smaller one (\"gobble\"). You cannot place a piece on top of an equal-size or larger piece."
+      },
+      {
+        "title": "On your turn",
+        "body": "Each turn you do exactly one of:\n① Place a reserve piece (one not yet on the board) on any cell — empty or occupied by a smaller piece.\n② Move one of your visible pieces on the board to another cell."
+      },
+      {
+        "title": "Covering rules",
+        "body": "A larger piece may cover any smaller piece, yours or your opponent's. The covered piece stays on the board but becomes hidden. If the covering piece later moves away, the hidden piece reappears and is again active for its owner."
+      },
+      {
+        "title": "Warning: revealing an opponent's winning line",
+        "body": "If moving your piece uncovers an opponent's piece that completes their winning line, the move still counts — it cannot be taken back. However, if the piece you moved can be placed on a cell that breaks the opponent's line, you must do so."
+      },
+      {
+        "title": "Draw",
+        "body": "The game is a draw if the same position occurs three times, or if the maximum number of moves is reached."
+      }
+    ]
+  },
+  "setup": {
+    "local": {
+      "subtitle": "Local match",
+      "title": "Local 2-Player",
+      "desc": "Set player names and rules, then take turns on the same screen."
+    },
+    "cpu": {
+      "subtitle": "CPU match",
+      "title": "vs CPU",
+      "desc": "Challenge an AI trained via reinforcement learning. Choose a difficulty and play."
+    },
+    "p1Label": "First player",
+    "p2Label": "Second player",
+    "profileLabel": "Your profile",
+    "nameLabel": "Name",
+    "avatarLabel": "Avatar",
+    "p1AvatarLabel": "First player avatar",
+    "p2AvatarLabel": "Second player avatar",
+    "avatarSeedLabel": "Avatar {{seed}}",
+    "presetLabel": "Rule preset",
+    "humanSideLabel": "Your side",
+    "sideP1": "First (P1)",
+    "sideP2": "Second (P2)",
+    "difficultyLabel": "Difficulty {{level}}",
+    "start": "Start game"
+  },
+  "stats": {
+    "subtitle": "Stats",
+    "title": "Stats",
+    "summary": "{{total}} games played / Last game: {{lastPlayed}}",
+    "noGames": "None",
+    "colDifficulty": "Difficulty",
+    "colWins": "Wins",
+    "colLosses": "Losses",
+    "colDraws": "Draws",
+    "clearButton": "Clear stats"
   },
   "preset": {
     "p3x3": "3x3 Classic",

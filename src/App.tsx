@@ -13,8 +13,12 @@ import {
 import { audioService, themeService, i18n } from '@/infra';
 import { useSettingsStore } from '@/stores';
 
-// Ensure i18n singleton is initialised on module load.
-void i18n;
+// Ensure i18n singleton is initialised on module load and apply the
+// persisted language immediately (before first render).
+const _persistedLang = useSettingsStore.getState().language;
+if (i18n.language !== _persistedLang) {
+  void i18n.changeLanguage(_persistedLang);
+}
 
 export const App = () => {
   const theme = useSettingsStore((s) => s.theme);

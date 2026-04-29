@@ -37,8 +37,10 @@ if (!i18n.isInitialized) {
       fallbackLng: 'ja',
       supportedLngs: [...SUPPORTED_LANGUAGES],
       interpolation: { escapeValue: false },
+      // Resources are bundled inline — make init synchronous so keys are
+      // available before the first React render (avoids showing raw keys).
+      initImmediate: false,
       detection: {
-        // localStorage first, then the browser navigator language.
         order: ['localStorage', 'navigator'],
         lookupLocalStorage: STORAGE_KEYS.i18nLng,
         caches: ['localStorage'],
