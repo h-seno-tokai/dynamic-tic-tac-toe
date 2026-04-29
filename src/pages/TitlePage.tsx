@@ -11,7 +11,7 @@ const menuItems = [
   {
     to: '/cpu/setup',
     label: 'CPU対戦',
-    description: '学習済みAI接続前は暫定CPUで動かします。',
+    description: '強化学習で訓練したAIと対戦します。',
     icon: <Bot className="h-5 w-5" />,
   },
   {

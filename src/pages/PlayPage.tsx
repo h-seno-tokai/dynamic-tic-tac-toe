@@ -8,7 +8,7 @@ import { UserAvatar } from '@/components/avatar';
 import { AiClient, selectFallbackMove } from '@/ai';
 import { engine, type GameState, type Move, type Position } from '@/domain';
 import { playBgm, playSfx, stopBgm } from '@/infra';
-import { useGameStore, useSessionStore } from '@/stores';
+import { useGameStore, useSessionStore, useStatsStore } from '@/stores';
 
 const MODEL_URL = '/model.onnx';
 
@@ -38,6 +38,7 @@ export const PlayPage = () => {
     endGame,
   } = useGameStore();
   const session = useSessionStore();
+  const recordGame = useStatsStore((s) => s.recordGame);
   const [selection, setSelection] = useState<Selection>(null);
   const [message, setMessage] = useState('手駒か盤上の自分の駒を選んでください。');
   const [invalidFlash, setInvalidFlash] = useState(false);
@@ -71,6 +72,10 @@ export const PlayPage = () => {
     if ((prev === null || prev === undefined) && curr != null) {
       setShowResult(true);
       playSfx('fanfare');
+      if (mode === 'cpu' && cpuDifficulty != null) {
+        const outcome = curr === 'draw' ? 'draw' : curr === humanSide ? 'win' : 'loss';
+        recordGame(cpuDifficulty, outcome);
+      }
     }
     prevOutcomeRef.current = curr;
   }, [currentGame?.outcome]);
