@@ -1,7 +1,8 @@
 import type { CSSProperties, FC } from 'react';
 import type { PieceSize, Player } from '@/domain';
 
-export type PieceDisplaySize = 'sm' | 'md' | 'lg';
+/** 'fill' makes the piece expand to 80% of its CSS container instead of a fixed px size. */
+export type PieceDisplaySize = 'sm' | 'md' | 'lg' | 'fill';
 
 export interface PieceProps {
   size: PieceSize;
@@ -66,11 +67,8 @@ export const Piece: FC<PieceProps> = ({
   className,
   'aria-label': ariaLabelProp,
 }) => {
-  const px = OUTER_PX[displaySize];
-  // We don't know the total number of ranks here; assume a reasonable upper
-  // bound of (rank + 1) clamped to at least 4 so size differences are clearly
-  // perceptible regardless of preset. This keeps the component prop-driven:
-  // rank 0 is always the smallest visible disc, higher ranks scale up.
+  const isFill = displaySize === 'fill';
+  const px = isFill ? null : OUTER_PX[displaySize];
   const totalRanks = Math.max(size.rank + 1, 4);
   const r = radiusForRank(size.rank, totalRanks);
 
@@ -79,6 +77,7 @@ export const Piece: FC<PieceProps> = ({
   const wrapperClasses = [
     'inline-flex items-center justify-center rounded-full',
     ownerColorClass[owner],
+    isFill ? 'w-4/5 h-4/5' : '',
     selected ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg' : '',
     disabled ? 'opacity-50' : '',
     className ?? '',
@@ -86,7 +85,7 @@ export const Piece: FC<PieceProps> = ({
     .filter(Boolean)
     .join(' ');
 
-  const sizeStyle: CSSProperties = { width: px, height: px };
+  const sizeStyle: CSSProperties = px != null ? { width: px, height: px } : {};
 
   // Inner concentric rings: rank tells how many rings to draw.
   // Rings divide the interior evenly, making size hierarchy instantly visible.
@@ -104,7 +103,13 @@ export const Piece: FC<PieceProps> = ({
       className={wrapperClasses}
       style={sizeStyle}
     >
-      <svg viewBox="0 0 100 100" width={px} height={px} aria-hidden="true" focusable="false">
+      <svg
+        viewBox="0 0 100 100"
+        width={px ?? '100%'}
+        height={px ?? '100%'}
+        aria-hidden="true"
+        focusable="false"
+      >
         <circle
           cx={50}
           cy={50}

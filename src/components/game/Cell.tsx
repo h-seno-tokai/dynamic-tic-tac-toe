@@ -98,18 +98,16 @@ export const Cell = forwardRef<HTMLDivElement, CellProps>(function Cell(
     >
       {top !== undefined && resolvedTopSize !== undefined && (
         <motion.div
-          // Subtle scale-in animation when the top piece changes.
-          // Honors reduced motion via Framer's useReducedMotion.
           key={`${top.owner}:${top.sizeId}:${pieces.length}`}
           initial={reducedMotion ? false : { scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-          className="flex items-center justify-center"
+          className="flex h-full w-full items-center justify-center"
         >
           <Piece
             size={resolvedTopSize}
             owner={top.owner}
-            displaySize={pieceDisplaySize}
+            displaySize={pieceDisplaySize ?? 'fill'}
             disabled={disabled}
           />
         </motion.div>
