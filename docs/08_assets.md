@@ -16,7 +16,7 @@
 | BGM | DOVA-SYNDROME「**Whip**」by しゃろう | DOVA 標準ライセンス（要・楽曲ページ確認） | 任意（推奨） |
 | SFX 一式 | **効果音ラボ** 統一セット | 効果音ラボ規約（商用OK・帰属任意） | 任意（推奨） |
 | CPU アバター | プログラム的生成（後述） | — | — |
-| ユーザーアバター | **未決**（後述・ユーザー選定待ち） | — | — |
+| ユーザーアバター | **DiceBear - Avataaars** | MIT + Free for personal/commercial（Pablo Stanley） | 任意（推奨） |
 
 実装時に `LICENSES.md` を作成し、すべてのアセット出典を一覧化する（公開リポジトリでの誠実な開示・ポートフォリオ品質向上のため）。
 
@@ -67,63 +67,35 @@
 
 ---
 
-## 3. ユーザーアバター（未決・選定中）
+## 3. ユーザーアバター（確定: DiceBear - Avataaars）
 
-### ユーザーが指定した要件
+### ユーザー要件（参考）
 - カラー（モノトーン不可）
 - 男性 / 女性 のバリエーション
 - 長髪 / 短髪 のバリエーション
 - 親しみやすい絵柄
 
-### 推奨案 A（第一推奨）: DiceBear - Avataaars
+### 採用: DiceBear - Avataaars
 - ソース: https://www.dicebear.com/styles/avataaars/
 - プレビュー: https://www.dicebear.com/playground/?style=avataaars
 - ライセンス: MIT + Free for personal and commercial use（Pablo Stanley 作、帰属任意・推奨）
-- 形式: SVG / PNG（HTTP API で動的生成）
-- 適合理由:
-  - **DiceBearで最もカスタマイズ要素が多い**（髪型・髪色・肌色・服装・アクセサリ・口・目）
-  - 長髪・短髪・髭・眼鏡・帽子など豊富な選択肢
-  - フラットなカートゥーン調で親しみやすい
-  - カラーフル
-- 適合度: ⭐⭐⭐⭐⭐
-- ユーザー判定: [ ] 採用 / [ ] 不採用 / [ ] 保留
+- 形式: SVG / PNG（HTTP API で動的生成可）
+- 採用理由:
+  - DiceBear 系で最もカスタマイズ要素が多い（髪型・髪色・肌色・服装・アクセサリ・口・目）
+  - 長髪 / 短髪 / 髭 / 眼鏡 / 帽子など要件を満たす豊富な選択肢
+  - フラットなカートゥーン調で親しみやすい・カラーフル
 
-### 推奨案 B（第二推奨）: DiceBear - Lorelei
-- ソース: https://www.dicebear.com/styles/lorelei/
-- プレビュー: https://www.dicebear.com/playground/?style=lorelei
-- ライセンス: MIT + CC0（Lisa Wischofsky 作）
-- 形式: SVG / PNG
-- 適合理由:
-  - 柔らかい色味のイラスト調で、日本のユーザーに馴染みやすいテイスト
-  - 髪型・髪色・服のバリエーション豊富
-  - カラー
-- 適合度: ⭐⭐⭐⭐
-- ユーザー判定: [ ] 採用 / [ ] 不採用 / [ ] 保留
+### 実装フェーズでの方針（暫定）
+1. DiceBear API でプリセット 16 種程度のシード固定アバターを生成
+2. ローカル2人対戦のセットアップ画面で、プレイヤー1 / 2 がそれぞれ別アバターを選ぶ
+3. 一覧に好みが無い場合のためにシード入力で動的生成する逃げ道を用意
+4. 配信形態: 静的 SVG を `public/avatars/` にコミット（オフライン動作のため）
 
-### 推奨案 C（第三推奨）: DiceBear - Adventurer
-- ソース: https://www.dicebear.com/styles/adventurer/
-- プレビュー: https://www.dicebear.com/playground/?style=adventurer
-- ライセンス: MIT + CC-BY 4.0（Lisa Wischofsky 作、帰属必要）
-- 形式: SVG / PNG
-- 適合理由:
-  - RPG キャラ風で遊び心。髪型・装飾・服色のバリエーション豊富
-  - カラー
-  - ⚠️ **CC-BY のためクレジット表記必須**
-- 適合度: ⭐⭐⭐
-- ユーザー判定: [ ] 採用 / [ ] 不採用 / [ ] 保留
-
-### 不採用（前回提案分）
+### 不採用（参考）
+- Lorelei / Adventurer: Avataaars が選ばれたため不採用
 - Notionists / Notionists Neutral: モノトーンのため不適
-- Bottts: ロボット型、ユーザーアバター用途には不適（CPU と紛らわしい）
-- Shapes: 抽象、人物表現要件と合わず
-
-### 採用後の運用イメージ（参考）
-スタイル決定後の実装方針:
-1. DiceBear API でプリセット16種ほどを生成し、ユーザーは選択肢から選ぶ
-2. または シード文字列を入力させ動的生成
-3. プレイヤー1/2 でそれぞれ別アバターを選べる UI
-
-→ ユーザー判定: A/B/C のいずれか、または別案を希望か。
+- Bottts: ロボット型で CPU と紛らわしい
+- Shapes: 抽象で人物表現要件と合わず
 
 ---
 
