@@ -21,6 +21,9 @@ export type { InferenceEngineOptions, InferenceOutput } from './inference';
 export { MCTS } from './mcts';
 export type { MctsOptions } from './mcts';
 
+export { selectFallbackMove } from './fallbackAi';
+export type { FallbackRandom } from './fallbackAi';
+
 export { DIFFICULTY_PROFILES, getProfile } from './difficulty';
 export type { DifficultyProfile } from './difficulty';
 

@@ -1,31 +1,38 @@
-import { Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import {
+  CpuSetupPage,
+  LocalSetupPage,
+  PlayPage,
+  ResultPage,
+  RulesPage,
+  SettingsPage,
+  StatsPage,
+  TitlePage,
+} from '@/pages';
+import { themeService } from '@/infra';
+import { useSettingsStore } from '@/stores';
 
 export const App = () => {
+  const theme = useSettingsStore((state) => state.theme);
+
+  useEffect(() => {
+    themeService.applyTheme(theme);
+  }, [theme]);
+
   return (
     <div className="min-h-screen bg-bg text-fg">
       <Routes>
-        <Route path="/" element={<TitlePagePlaceholder />} />
-        <Route path="*" element={<TitlePagePlaceholder />} />
+        <Route path="/" element={<TitlePage />} />
+        <Route path="/local/setup" element={<LocalSetupPage />} />
+        <Route path="/cpu/setup" element={<CpuSetupPage />} />
+        <Route path="/play" element={<PlayPage />} />
+        <Route path="/result" element={<ResultPage />} />
+        <Route path="/rules" element={<RulesPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/stats" element={<StatsPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   );
 };
-
-const TitlePagePlaceholder = () => (
-  <main className="flex min-h-screen items-center justify-center p-8">
-    <div className="text-center">
-      <h1 className="text-4xl font-bold tracking-tight md:text-5xl">Dynamic Tic-Tac-Toe</h1>
-      <p className="mt-3 text-muted">Implementation in progress</p>
-      <p className="mt-1 text-sm text-muted">
-        See{' '}
-        <a
-          className="text-accent underline"
-          href="https://github.com/h-seno-tokai/dynamic-tic-tac-toe"
-        >
-          design docs
-        </a>{' '}
-        for details
-      </p>
-    </div>
-  </main>
-);
