@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RULE_PRESETS, type RulePresetId } from '@/domain';
+import { AvatarPicker, DEFAULT_AVATAR_SEEDS } from '@/components/avatar';
 import { Button, RadioGroup } from '@/components/primitives';
 import { useGameStore, useSessionStore } from '@/stores';
 
@@ -12,6 +13,8 @@ export const LocalSetupPage = () => {
   const [presetId, setPresetId] = useState<RulePresetId>('3x3-classic');
   const [p1Name, setP1Name] = useState(session.lastP1Name ?? 'Player 1');
   const [p2Name, setP2Name] = useState(session.lastP2Name ?? 'Player 2');
+  const [p1Avatar, setP1Avatar] = useState(session.lastP1AvatarId ?? DEFAULT_AVATAR_SEEDS[0]);
+  const [p2Avatar, setP2Avatar] = useState(session.lastP2AvatarId ?? DEFAULT_AVATAR_SEEDS[1]);
 
   const selectedPreset = useMemo(
     () => RULE_PRESETS.find((preset) => preset.id === presetId) ?? RULE_PRESETS[0],
@@ -21,6 +24,8 @@ export const LocalSetupPage = () => {
   const handleStart = () => {
     session.setLastP1Name(p1Name.trim() || 'Player 1');
     session.setLastP2Name(p2Name.trim() || 'Player 2');
+    session.setLastP1AvatarId(p1Avatar);
+    session.setLastP2AvatarId(p2Avatar);
     startNewGame(selectedPreset.rules, 'local-2p');
     navigate('/play');
   };
@@ -35,24 +40,48 @@ export const LocalSetupPage = () => {
         </p>
       </header>
 
-      <div className="grid gap-5">
-        <label className="grid gap-2">
-          <span className="text-sm font-medium">先手プレイヤー</span>
-          <input
-            value={p1Name}
-            onChange={(event) => setP1Name(event.target.value)}
-            className="h-11 rounded-md border border-border bg-bg px-3 text-base"
-          />
-        </label>
+      <div className="grid gap-6">
+        <fieldset className="grid gap-3">
+          <legend className="text-sm font-semibold">先手プレイヤー</legend>
+          <label className="grid gap-1.5">
+            <span className="text-xs text-muted">名前</span>
+            <input
+              value={p1Name}
+              onChange={(e) => setP1Name(e.target.value)}
+              className="h-10 rounded-md border border-border bg-bg px-3 text-base"
+            />
+          </label>
+          <div className="grid gap-1.5">
+            <span className="text-xs text-muted">アバター</span>
+            <AvatarPicker
+              value={p1Avatar}
+              onChange={setP1Avatar}
+              label="先手アバター"
+              getSeedLabel={(seed) => `アバター ${seed}`}
+            />
+          </div>
+        </fieldset>
 
-        <label className="grid gap-2">
-          <span className="text-sm font-medium">後手プレイヤー</span>
-          <input
-            value={p2Name}
-            onChange={(event) => setP2Name(event.target.value)}
-            className="h-11 rounded-md border border-border bg-bg px-3 text-base"
-          />
-        </label>
+        <fieldset className="grid gap-3">
+          <legend className="text-sm font-semibold">後手プレイヤー</legend>
+          <label className="grid gap-1.5">
+            <span className="text-xs text-muted">名前</span>
+            <input
+              value={p2Name}
+              onChange={(e) => setP2Name(e.target.value)}
+              className="h-10 rounded-md border border-border bg-bg px-3 text-base"
+            />
+          </label>
+          <div className="grid gap-1.5">
+            <span className="text-xs text-muted">アバター</span>
+            <AvatarPicker
+              value={p2Avatar}
+              onChange={setP2Avatar}
+              label="後手アバター"
+              getSeedLabel={(seed) => `アバター ${seed}`}
+            />
+          </div>
+        </fieldset>
 
         <RadioGroup
           label="ルールプリセット"

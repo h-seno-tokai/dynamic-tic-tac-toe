@@ -1,15 +1,19 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RULE_PRESETS, type Player, type RulePresetId } from '@/domain';
+import { AvatarPicker, DEFAULT_AVATAR_SEEDS } from '@/components/avatar';
 import { Button, RadioGroup, Slider } from '@/components/primitives';
-import { useGameStore } from '@/stores';
+import { useGameStore, useSessionStore } from '@/stores';
 
 export const CpuSetupPage = () => {
   const navigate = useNavigate();
   const startNewGame = useGameStore((state) => state.startNewGame);
+  const session = useSessionStore();
+
   const [presetId, setPresetId] = useState<RulePresetId>('3x3-classic');
   const [difficulty, setDifficulty] = useState(3);
   const [humanSide, setHumanSide] = useState<Player>('P1');
+  const [avatar, setAvatar] = useState(session.lastP1AvatarId ?? DEFAULT_AVATAR_SEEDS[0]);
 
   const selectedPreset = useMemo(
     () => RULE_PRESETS.find((preset) => preset.id === presetId) ?? RULE_PRESETS[0],
@@ -17,6 +21,11 @@ export const CpuSetupPage = () => {
   );
 
   const handleStart = () => {
+    if (humanSide === 'P1') {
+      session.setLastP1AvatarId(avatar);
+    } else {
+      session.setLastP2AvatarId(avatar);
+    }
     startNewGame(selectedPreset.rules, 'cpu', { difficulty, humanSide });
     navigate('/play');
   };
@@ -31,7 +40,17 @@ export const CpuSetupPage = () => {
         </p>
       </header>
 
-      <div className="grid gap-5">
+      <div className="grid gap-6">
+        <div className="grid gap-3">
+          <span className="text-sm font-semibold">あなたのアバター</span>
+          <AvatarPicker
+            value={avatar}
+            onChange={setAvatar}
+            label="プレイヤーアバター"
+            getSeedLabel={(seed) => `アバター ${seed}`}
+          />
+        </div>
+
         <Slider
           label={`難易度 ${difficulty}`}
           min={1}
