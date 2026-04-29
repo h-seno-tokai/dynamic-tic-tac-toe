@@ -1,0 +1,11 @@
+dist
+coverage
+node_modules
+playwright-report
+test-results
+public/models
+public/audio
+public/avatars
+ai-training
+pnpm-lock.yaml
+*.log
