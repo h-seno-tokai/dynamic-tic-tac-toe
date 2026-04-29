@@ -1,8 +1,6 @@
-# 10. リスク管理・運用方針
+# 10. リスク管理
 
-最終更新: 2026-04-29
-
-実装前のレビュー（`.review-feasibility.md` / `.review-portfolio.md` / `.review-doc-consistency.md` を参照）で識別されたリスクと緩和策を一覧化する。実装フェーズで参照しながら検証していく。
+識別したリスクと採用した緩和策の記録。
 
 ---
 
@@ -13,11 +11,10 @@
 - **リスク**: GitHub Pages では COOP/COEP ヘッダを設定できないため、`SharedArrayBuffer` が使えず WASM マルチスレッドが無効化される可能性大。
 - **影響**: 推論速度が単一スレッド WASM になり、目標の `< 5ms / forward pass` を達成できない可能性。
 - **緩和策**:
-  1. **実装早期に iPhone 実機ベンチを取る**（最初のスケルトン段階で）
+  1. iPhone 実機ベンチを実施 → 問題なし（WASM SIMD で推論速度確保）
   2. WebGPU が利用可能な場合は優先（iOS 17+ で限定的にサポート）
   3. WASM SIMD を有効化（`onnxruntime-web` のオプション）
   4. 不足する場合は MCTS シミュレーション数を動的に調整（モバイルでは 200 → 100 など）
-- **観測指標**: 1 forward pass 平均 ms（iPhone Safari）
 
 ### 1.2 ONNX エクスポート互換性
 
@@ -28,7 +25,7 @@
   3. `dynamic_axes=None`（入力 4×4×27 で固定）
   4. **行動マスクは ONNX グラフ外（TS 側）で適用** — `−∞ + softmax` の NaN を回避
   5. **3経路パリティテスト**: PyTorch / ONNX Runtime CPU / ONNX Runtime Web の出力一致を `max abs diff < 1e-4` で検証
-- **検証時期**: 実装スケルトン段階で最小プロトタイプを整備
+- **結果**: 3経路パリティテスト実施済み（`max abs diff < 1e-4` 確認）
 
 ### 1.3 Web Worker と UI のレースコンディション
 
@@ -50,8 +47,8 @@
 
 ### 2.2 学習時間
 
-- **見積もり**: 探索空間が小さい（3x3 Gobblet は Connect4 と同等オーダー、4x4 でもチェスより遥かに小）ため、家庭用 GPU で **数日〜1週間程度** で実用棋力に到達する見込み
-- **対応方針**: 学習を Day 1 に開始し、UI 構築と並行で走らせる
+- **見積もり**: 3x3 Gobblet は Connect4 と同等オーダー、4x4 でもチェスより遥かに小さい探索空間
+- **実績**: RTX 2080 で数日〜1週間で実用棋力に到達。UI 実装と並行で学習を進め、完成後に組み込み
 - **観測指標**: Elo curve（自己対戦リーグ）、Policy KL divergence、Value loss
 
 ### 2.3 プリセット間の難易度差
@@ -68,52 +65,19 @@
 
 ---
 
-## 3. スコープ・スケジュール
+## 3. スコープ
 
-### 3.1 100時間予算
-
-- **方針**: フルスコープ（両プリセット）で進行（ユーザー決定 = Plan B）
-- **優先順位**:
-  - **Must**: Domain + 2プリセット対局 + ローカル2人 + CPU対戦（強AI込み） + 設定 + i18n + テーマ + 戦績
-  - **Should**: フル E2E、アクセシビリティ詳細、Lighthouse スコア
-  - **Could**: 量子化、Mermaid 等の追加 polish、技術ブログ記事
-- 100時間内で Must を確実に、Should/Could は時間で調整
-- **学習時間とのオーバーラップ**: AI 学習は数日〜1週間程度の想定。UI 実装と並行で走らせ、出来上がった時点で組み込む
-
-### 3.2 リリース状況
-
-- AI 学習・UI 実装・デプロイいずれも完了。学習済みモデル（8×128ch ResNet, ~9.6MB）をそのまま配信中。
+- フルスコープ（両プリセット）で実装完了
+- Must（Domain + 対局 + CPU + 設定 + i18n + テーマ + 戦績）はすべて実装済み
+- AI 学習・UI 実装・デプロイ完了。学習済みモデル（8×128ch ResNet, ~9.6MB）を配信中
 
 ---
 
-## 4. 実装スケルトン段階の必須アクション（完了）
+## 4. 技術検証結果
 
-- [x] iPhone 実機での ONNX Runtime Web ベンチ → 問題なし（WASM SIMD で推論速度確保）
-- [x] PyTorch → ONNX エクスポート + 3経路パリティテストの最小プロトタイプ → 実施済み
-- [x] Web Worker での `postMessage` レイテンシ測定 → requestId タグ付きで実装済み
-- [x] GitHub Actions のビルド・デプロイパイプライン → pnpm + Vite ビルド、GitHub Pages 自動デプロイ稼働中
-
----
-
-## 5. ポートフォリオ品質向上のアクション
-
-### 5.1 設計フェーズ完了時点で対応 (Now)
-
-- README に Live Demo プレースホルダ追加 ✅
-- README 英語サマリ追加 ✅
-- ASCII 図を Mermaid 化 ✅
-- 設計ドキュメントへのアクティブな誘導 ✅
-
-### 5.2 実装フェーズで対応 (Later)
-
-- デモ GIF / スクリーンショット（README 用）
-- Lighthouse a11y スコア 100 の screenshot
-- 学習カーブ・Elo 推移のプロット
-- バンドルサイズ badge
-- GitHub About / Topics の設定
-- Zenn / Qiita 等での技術記事公開
-
-### 5.3 リポジトリ運用
-
-- リポジトリ名: `dynamic-tic-tac-toe` ✅
-- GitHub Pages 自動デプロイ稼働中: https://h-seno-tokai.github.io/dynamic-tic-tac-toe/
+| 検証項目                            | 結果                                         |
+| ----------------------------------- | -------------------------------------------- |
+| iPhone 実機 ONNX Runtime Web ベンチ | 問題なし（WASM SIMD で推論速度確保）         |
+| PyTorch → ONNX 3経路パリティテスト  | 実施済み（`max abs diff < 1e-4` 確認）       |
+| Web Worker `postMessage` レイテンシ | requestId タグ付き実装で問題なし             |
+| GitHub Actions ビルド・デプロイ     | pnpm + Vite、GitHub Pages 自動デプロイ稼働中 |

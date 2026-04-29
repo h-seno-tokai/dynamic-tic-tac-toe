@@ -1,12 +1,11 @@
 # 06. データモデル
 
-最終更新: 2026-04-29
-
 **最重要原則**: ゲームに関する数値（盤面サイズ・駒サイズ段階・駒数）は**一切ハードコードせず**、`GameRules` オブジェクトから駆動する。
 
 ## 1. 設計目標（再掲）
 
 ユーザーの拡張要求:
+
 - 盤面: 3x3（既定）、4x4 への拡張、それ以上もあり得る
 - 駒サイズ段階: 大中小（既定3段階）、極大追加で4段階、さらに増設もあり得る
 - 各サイズの駒数: 2個ずつ（既定）、可変
@@ -32,8 +31,8 @@ export interface PieceSize {
 
 /** 勝利条件（拡張可能な ADT） */
 export type WinCondition =
-  | { kind: "lineOfN"; n: number }   // N目並べ系。盤面サイズに合わせる
-  | { kind: "custom"; predicate: (board: Board) => Player | null };
+  | { kind: 'lineOfN'; n: number } // N目並べ系。盤面サイズに合わせる
+  | { kind: 'custom'; predicate: (board: Board) => Player | null };
 
 /** ゲームルール。すべてここから駆動される */
 export interface GameRules {
@@ -78,14 +77,14 @@ export interface GameRules {
 export const PRESET_3X3: GameRules = {
   boardSize: 3,
   pieceSizes: [
-    { id: "S", rank: 0, displayName: { ja: "小", en: "Small" } },
-    { id: "M", rank: 1, displayName: { ja: "中", en: "Medium" } },
-    { id: "L", rank: 2, displayName: { ja: "大", en: "Large" } },
+    { id: 'S', rank: 0, displayName: { ja: '小', en: 'Small' } },
+    { id: 'M', rank: 1, displayName: { ja: '中', en: 'Medium' } },
+    { id: 'L', rank: 2, displayName: { ja: '大', en: 'Large' } },
   ],
   piecesPerSize: [2, 2, 2],
-  winCondition: { kind: "lineOfN", n: 3 },
+  winCondition: { kind: 'lineOfN', n: 3 },
   allowSameSizeCover: false,
-  allowSelfCover: true,  // 標準 Gobblet 準拠: 自分の駒の上に被せ可
+  allowSelfCover: true, // 標準 Gobblet 準拠: 自分の駒の上に被せ可
   maxPly: 60,
   drawByRepetition: 3,
 };
@@ -94,13 +93,13 @@ export const PRESET_3X3: GameRules = {
 export const PRESET_4X4_XL: GameRules = {
   boardSize: 4,
   pieceSizes: [
-    { id: "S", rank: 0, displayName: { ja: "小", en: "Small" } },
-    { id: "M", rank: 1, displayName: { ja: "中", en: "Medium" } },
-    { id: "L", rank: 2, displayName: { ja: "大", en: "Large" } },
-    { id: "XL", rank: 3, displayName: { ja: "巨大", en: "Huge" } },
+    { id: 'S', rank: 0, displayName: { ja: '小', en: 'Small' } },
+    { id: 'M', rank: 1, displayName: { ja: '中', en: 'Medium' } },
+    { id: 'L', rank: 2, displayName: { ja: '大', en: 'Large' } },
+    { id: 'XL', rank: 3, displayName: { ja: '巨大', en: 'Huge' } },
   ],
   piecesPerSize: [3, 3, 3, 3],
-  winCondition: { kind: "lineOfN", n: 4 },
+  winCondition: { kind: 'lineOfN', n: 4 },
   allowSameSizeCover: false,
   allowSelfCover: true,
   maxPly: 120,
@@ -109,11 +108,11 @@ export const PRESET_4X4_XL: GameRules = {
 
 /** ユーザーに提示するプリセット一覧（並び順固定） */
 export const RULE_PRESETS = [
-  { id: "3x3-classic", label: { ja: "3x3 クラシック", en: "3x3 Classic" }, rules: PRESET_3X3 },
-  { id: "4x4-huge", label: { ja: "4x4 巨大入り", en: "4x4 Huge" }, rules: PRESET_4X4_XL },
+  { id: '3x3-classic', label: { ja: '3x3 クラシック', en: '3x3 Classic' }, rules: PRESET_3X3 },
+  { id: '4x4-huge', label: { ja: '4x4 巨大入り', en: '4x4 Huge' }, rules: PRESET_4X4_XL },
 ] as const;
 
-export type RulePresetId = typeof RULE_PRESETS[number]["id"];
+export type RulePresetId = (typeof RULE_PRESETS)[number]['id'];
 
 /** AI ユニバーサルネットワークが対応する上限（学習時に固定） */
 export const AI_LIMITS = {
@@ -135,7 +134,7 @@ export function isRuleSupportedByAI(rules: GameRules): boolean {
 // プレイヤー・駒
 // ============================================
 
-export type Player = "P1" | "P2";
+export type Player = 'P1' | 'P2';
 
 export interface Piece {
   owner: Player;
@@ -168,7 +167,7 @@ export type Position = { row: number; col: number };
 
 /** 手駒から盤上に置く */
 export interface PlaceFromReserveMove {
-  kind: "placeFromReserve";
+  kind: 'placeFromReserve';
   player: Player;
   sizeId: string;
   to: Position;
@@ -176,7 +175,7 @@ export interface PlaceFromReserveMove {
 
 /** 盤上の駒を移動（覆い被せを含む） */
 export interface MoveOnBoardMove {
-  kind: "moveOnBoard";
+  kind: 'moveOnBoard';
   player: Player;
   from: Position;
   to: Position;
@@ -200,7 +199,7 @@ export interface GameState {
   /** 同一局面の出現回数を追跡するハッシュ→カウントの map（`drawByRepetition` 判定用）。 */
   repetition: Map<string, number>;
   /** 結果。null は対局中、引き分けは "draw" */
-  outcome: Player | "draw" | null;
+  outcome: Player | 'draw' | null;
 }
 
 // ============================================
@@ -213,7 +212,7 @@ export interface GameEngine {
   applyMove(state: GameState, move: Move): GameState;
   undo(state: GameState): GameState; // history が空なら no-op
   isTerminal(state: GameState): boolean;
-  outcome(state: GameState): Player | "draw" | null;
+  outcome(state: GameState): Player | 'draw' | null;
   validateRules(rules: GameRules): { ok: boolean; errors: string[] };
 }
 ```
@@ -221,26 +220,31 @@ export interface GameEngine {
 ## 3. 拡張性ポイント
 
 ### 3.1 盤面サイズ
+
 - `Board` は2次元配列。`boardSize` 駆動。
 - 全ての操作（座標生成・勝敗判定・UI 描画）は `state.rules.boardSize` を参照する。
 - ハードコード禁止: `for (let i = 0; i < 3; i++)` は ❌、`for (let i = 0; i < state.rules.boardSize; i++)` ✅。
 
 ### 3.2 駒サイズ段階
+
 - `pieceSizes` は配列。`rank` で順序付け。
 - 覆い被せ判定は `rank` 比較のみで済む（"L" などのID依存禁止）。
 - 新しいサイズ "極大" を足す = `pieceSizes` に1要素追加するだけ。
 
 ### 3.3 駒数
+
 - `piecesPerSize[i]` で駒サイズ i の個数を変更可能。
 - バリデーション必要: 総駒数が盤面に対して過多/過少でないか。
 
 ### 3.4 勝利条件
+
 - `WinCondition` を ADT にして将来の拡張（斜め禁止・対角線必須・カウント方式等）を許す。
 - 既定は `lineOfN` で N = boardSize に合わせる。
 
 ## 4. AlphaZero との接続
 
 ### 4.1 入力テンソル化（ユニバーサルネットワーク方式）
+
 - 入力次元は **固定形状** `MAX_BOARD × MAX_BOARD × C`（MAX_BOARD = 4）
 - 2 プリセットを単一モデルで扱う:
   - **3x3 プリセット**: 盤外マス・XL サイズを mask チャネルで不可侵化
@@ -249,6 +253,7 @@ export interface GameEngine {
 - 詳細は `07_ai_design.md` 1.4 参照
 
 ### 4.2 行動空間（固定）
+
 - 行動空間は **固定 320 次元**（MAX_PIECE_SIZES × MAX_BOARD² + MAX_BOARD⁴ = 4 × 16 + 256）
 - 内訳:
   - PlaceFromReserve: 4 × 16 = 64
@@ -262,10 +267,10 @@ export interface GameEngine {
 
 ```ts
 interface PersistedSettings {
-  language: "ja" | "en";
-  theme: "light" | "dark" | "system";
-  bgmVolume: number;   // 0..1
-  sfxVolume: number;   // 0..1
+  language: 'ja' | 'en';
+  theme: 'light' | 'dark' | 'system';
+  bgmVolume: number; // 0..1
+  sfxVolume: number; // 0..1
   bgmEnabled: boolean;
   sfxEnabled: boolean;
 }
