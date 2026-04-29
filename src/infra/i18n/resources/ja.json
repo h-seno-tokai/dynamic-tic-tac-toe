@@ -1,0 +1,63 @@
+{
+  "common": {
+    "start": "はじめる",
+    "cancel": "キャンセル",
+    "confirm": "決定",
+    "back": "戻る",
+    "close": "閉じる",
+    "ok": "OK"
+  },
+  "title": {
+    "appName": "Dynamic Tic-Tac-Toe",
+    "tagline": "動的な三目並べ"
+  },
+  "menu": {
+    "localPlay": "2人で対戦",
+    "cpuPlay": "CPUと対戦",
+    "tutorial": "チュートリアル",
+    "settings": "設定",
+    "stats": "戦績",
+    "rules": "ルール"
+  },
+  "game": {
+    "surrender": "投了",
+    "undo": "待った",
+    "thinking": "思考中…",
+    "yourTurn": "あなたの番です",
+    "cpuTurn": "CPUの番です",
+    "choosePiece": "駒を選んでください"
+  },
+  "result": {
+    "win": "勝ち",
+    "lose": "負け",
+    "draw": "引き分け",
+    "shoubuari": "勝負あり！"
+  },
+  "settings": {
+    "bgm": "BGM",
+    "sfx": "効果音",
+    "theme": "テーマ",
+    "language": "言語",
+    "themeLight": "ライト",
+    "themeDark": "ダーク",
+    "themeSystem": "システム設定に従う",
+    "languageJa": "日本語",
+    "languageEn": "English"
+  },
+  "preset": {
+    "p3x3": "3x3 クラシック",
+    "p4x4": "4x4 巨大入り"
+  },
+  "difficulty": {
+    "level1": "レベル1 (入門)",
+    "level2": "レベル2 (初級下)",
+    "level3": "レベル3 (初級上)",
+    "level4": "レベル4 (中級下)",
+    "level5": "レベル5 (中級)",
+    "level6": "レベル6 (中級上)",
+    "level7": "レベル7 (上級下)",
+    "level8": "レベル8 (上級)",
+    "level9": "レベル9 (上級上)",
+    "level10": "レベル10 (最強)"
+  }
+}

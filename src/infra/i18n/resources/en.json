@@ -1,0 +1,63 @@
+{
+  "common": {
+    "start": "Start",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "back": "Back",
+    "close": "Close",
+    "ok": "OK"
+  },
+  "title": {
+    "appName": "Dynamic Tic-Tac-Toe",
+    "tagline": "A dynamic take on Tic-Tac-Toe"
+  },
+  "menu": {
+    "localPlay": "Local 2-Player",
+    "cpuPlay": "Play vs CPU",
+    "tutorial": "Tutorial",
+    "settings": "Settings",
+    "stats": "Stats",
+    "rules": "Rules"
+  },
+  "game": {
+    "surrender": "Surrender",
+    "undo": "Undo",
+    "thinking": "Thinking...",
+    "yourTurn": "Your turn",
+    "cpuTurn": "CPU's turn",
+    "choosePiece": "Choose a piece"
+  },
+  "result": {
+    "win": "You win",
+    "lose": "You lose",
+    "draw": "Draw",
+    "shoubuari": "Game over!"
+  },
+  "settings": {
+    "bgm": "BGM",
+    "sfx": "Sound effects",
+    "theme": "Theme",
+    "language": "Language",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "Follow system",
+    "languageJa": "日本語",
+    "languageEn": "English"
+  },
+  "preset": {
+    "p3x3": "3x3 Classic",
+    "p4x4": "4x4 Huge"
+  },
+  "difficulty": {
+    "level1": "Level 1 (Beginner)",
+    "level2": "Level 2 (Easy-)",
+    "level3": "Level 3 (Easy+)",
+    "level4": "Level 4 (Medium-)",
+    "level5": "Level 5 (Medium)",
+    "level6": "Level 6 (Medium+)",
+    "level7": "Level 7 (Hard-)",
+    "level8": "Level 8 (Hard)",
+    "level9": "Level 9 (Hard+)",
+    "level10": "Level 10 (Master)"
+  }
+}
