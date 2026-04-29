@@ -260,7 +260,7 @@ Tailwind は CSS 変数経由で参照（`bg-[var(--color-bg)]` 等）。
 
 ## 10. パフォーマンス目標
 
-- 初期ロード: 5MB 以内（モデル含めて 10MB 以内が要件目標）
+- 初期ロード合計: 10MB 以内（モデル重み込み、`01_requirements.md` 4.1 と整合）
 - TTI（Time to Interactive）: 3秒以内（4G 環境）
 - フレームレート: 60fps（盤面操作中）
-- AI 推論: モバイル含めて 1 forward pass ≤ 5ms
+- AI 推論: モバイル含めて 1 forward pass ≤ 5ms（達成困難な場合は MCTS シミュレーション数を動的調整）

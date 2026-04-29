@@ -61,8 +61,12 @@ GitHub Pages 上に静的ファイルとしてデプロイし、モデル重み�
   - ONNX Runtime Web による Policy / Value 推論
   - 難易度パラメータに応じた振る舞い（チェックポイント・シミュレーション数・温度）
 - メインスレッドとは `postMessage` で対話：
-  - `request: { state, difficulty, timeBudgetMs }` → `response: { move, thinkingMs, principalVariation }`
+  - `request: { requestId, state, stateHash, difficulty, timeBudgetMs }`
+  - `response: { requestId, move, thinkingMs, principalVariation }`
 - 思考の中断 (abort signal) に対応（投了・ウィンドウ閉じ時）
+- **レースコンディション対策**: 「待った」で局面が巻き戻った直後に古い思考結果が返る可能性があるため、
+  メインスレッド側は応答の `requestId` を現在の最新リクエスト ID と照合し、stale な応答は無条件で破棄する。
+  併せて `stateHash` も比較して二重ガードする。
 
 ### 2.3 Application（状態管理）
 - **Zustand** ストアで構成

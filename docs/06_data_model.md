@@ -54,6 +54,19 @@ export interface GameRules {
 
   /** 自分の駒の上に自分の駒を被せ可能か（既定 false） */
   allowSelfCover: boolean;
+
+  /**
+   * 引き分け判定: 手数（プライ）がこの値を超えたら強制引き分け。
+   * Gobblet は駒を動かし続けられるため「合法手なし」だけでは終局しない。
+   * 自己対戦で無限ループを避けるため必須。
+   */
+  maxPly: number;
+
+  /**
+   * 同一局面が N 回出現したら引き分け（threefold repetition）。
+   * 既定: 3
+   */
+  drawByRepetition: number;
 }
 
 /**
@@ -73,6 +86,8 @@ export const PRESET_3X3: GameRules = {
   winCondition: { kind: "lineOfN", n: 3 },
   allowSameSizeCover: false,
   allowSelfCover: true,  // 標準 Gobblet 準拠: 自分の駒の上に被せ可
+  maxPly: 60,
+  drawByRepetition: 3,
 };
 
 /** プリセットB: 4x4、巨大・大・中・小 各3個 */
@@ -88,6 +103,8 @@ export const PRESET_4X4_XL: GameRules = {
   winCondition: { kind: "lineOfN", n: 4 },
   allowSameSizeCover: false,
   allowSelfCover: true,
+  maxPly: 120,
+  drawByRepetition: 3,
 };
 
 /** ユーザーに提示するプリセット一覧（並び順固定） */
@@ -176,8 +193,12 @@ export interface GameState {
   board: Board;
   reserves: { P1: Reserve; P2: Reserve };
   toMove: Player;
-  /** これまでの手の履歴。待った・リプレイで使用 */
+  /** これまでの手の履歴。待った（undo）操作で使用。永続化はしない。 */
   history: Move[];
+  /** 経過手数（プライ数）。`maxPly` 判定に使用。 */
+  ply: number;
+  /** 同一局面の出現回数を追跡するハッシュ→カウントの map（`drawByRepetition` 判定用）。 */
+  repetition: Map<string, number>;
   /** 結果。null は対局中、引き分けは "draw" */
   outcome: Player | "draw" | null;
 }
@@ -266,16 +287,16 @@ interface PersistedSession {
 
 すべて単一の名前空間プレフィックス（例: `dttt:`）で始める。バージョン管理キー `dttt:schemaVersion` を持ち、互換性のないスキーマ変更時はマイグレーションする。
 
-## 6. 確定事項 / 未決事項
+## 6. 確定事項
 
-### 確定
 - 勝利条件: lineOfN で N = boardSize（縦・横・斜め）
-- 引き分け条件: 合法手なし
+- 引き分け条件:
+  - **合法手なし**（ほぼ起きないが定義としては必要）
+  - **`maxPly` 到達**（3x3=60, 4x4=120）
+  - **threefold repetition**（同一局面が `drawByRepetition`=3 回出現）
 - 覆い被せ: `allowSameSizeCover: false` / `allowSelfCover: true`（標準 Gobblet 準拠）
 - 盤外スタック: サイズ別カウントのみ
 - ルール選択: **2 プリセット固定**（PRESET_3X3 / PRESET_4X4_XL）。完全カスタム UI は提供しない
-- AI: 単一ユニバーサル CNN で両プリセットをカバー
+- AI: 単一ユニバーサル CNN で両プリセットをカバー（4×4×27 入力 / ResNet 4×64）
 - リプレイ永続化: **不要**。戦績のみ localStorage 保存
-
-### 未決（ユーザー決定）
-- 入力テンソル化のチャンネル設計詳細
+- 同一局面の検出: 局面ハッシュ（盤面 + 手駒残数 + 手番）を canonical 文字列化して使用

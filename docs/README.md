@@ -24,6 +24,7 @@
 | 07 | [07_ai_design.md](07_ai_design.md) | CPU/強化学習の設計（AlphaZero、ネットワーク確定） | 確定 |
 | 08 | [08_assets.md](08_assets.md) | BGM/SFX/アバター（全採用確定） | 確定 |
 | 09 | [09_conventions.md](09_conventions.md) | コーディング規約・コンポーネント設計指針 | 確定 |
+| 10 | [10_risks.md](10_risks.md) | リスク管理・運用方針（実装前レビュー反映） | 確定 |
 
 ## 担当分担
 - **ユーザー単独で決定する事項**:

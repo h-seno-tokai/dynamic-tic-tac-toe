@@ -55,13 +55,11 @@
 
 #### 1.4.2 ネットワーク設計の制約
 ユーザーが決めるモデルアーキテクチャの制約条件として:
-- 入力テンソルは **固定形状** `MAX_BOARD × MAX_BOARD × C`
-  - 駒占有チャネル: `(MAX_PIECE_SIZES × 2 players)` = 8 ch
-  - 手駒残数チャネル: `(MAX_PIECE_SIZES × 2 players)` = 8 ch（各マスに同値ブロードキャスト）
-  - 手番チャネル: 1 ch
-  - **out-of-board マスクチャネル**: 1 ch（実盤面範囲外を 1）
-  - **piece-size 不使用マスク**: 1 ch（現ルールで使われないサイズを示す）
-  - 合計目安: 約 19 ch（最終決定はユーザー）
+- 入力テンソルは **固定形状** `MAX_BOARD × MAX_BOARD × 27 ch`（詳細チャネル設計は §2.1）
+  - 最上段位置 (size × player): 8 ch
+  - 任意位置 (被覆含む、size × player): 8 ch
+  - 手駒残数 (size × player、空間ブロードキャスト): 8 ch
+  - 手番 / out-of-board / unused-size: 各 1 ch
 - バックボーンは **Fully Convolutional** を推奨（盤面サイズへの感度を抑制）
 - ポリシーヘッド: 出力次元 320 固定
   - PlaceFromReserve: 4 × 16 = 64
@@ -217,22 +215,31 @@ Policy Head                      Value Head
 
 ### 3.5 学習〜配信パイプライン
 1. Python で学習・チェックポイント保存
-2. 採用するチェックポイントを `torch.onnx.export` で ONNX 化
-3. opset / dynamic axes を ONNX Runtime Web 互換に
-4. 配信先（リポジトリ or 静的ホスティング）に配置
+2. 採用するチェックポイントを `torch.onnx.export` で ONNX 化（**model.eval() 必須**）
+3. opset 17 固定、dynamic_axes は使わない（入力 4×4×27 で固定）
+4. 配信先（`public/models/` 配下）に配置 → GitHub Actions で公開
 5. クライアントは fetch + ONNX Runtime Web で読込
+
+### 3.6 ONNX 互換性の落とし穴（必読）
+
+PyTorch → ONNX → ONNX Runtime Web の経路は踏みやすい罠が多い。実装時に以下を厳守:
+
+- **行動マスクを ONNX グラフに含めない**: グラフ内で `−∞ + softmax` 経路を作ると NaN 発生。マスクは **TypeScript 側で post-inference に適用**（合法手以外を `-Infinity` 加算 → 再 softmax / argmax 前にフィルタ）
+- **opset バージョン: 17 固定**（ONNX Runtime Web の対応状況と PyTorch エクスポート機能の最良バランス）
+- **BN は eval モードでエクスポート**: 学習統計を固定。`model.eval()` を明示的に呼んだ後に `torch.onnx.export` を実行
+- **dynamic_axes は使わない**: 入力 4×4×27 を固定し、量子化や最適化を効きやすくする
+- **3経路パリティテスト必須**: PyTorch (`.eval()`) ↔ ONNX Runtime CPU ↔ ONNX Runtime Web で同一局面の出力（policy logits + value）を比較し、`max abs diff < 1e-4` を確認する。これは実装スケルトンの段階で最小プロトタイプとして整備する
 
 ---
 
-## 4. 未決事項
+## 4. 未決事項（実測しながら詰める）
 
-- ゲームルール確定後に決まるもの:
-  - 盤面サイズ・駒サイズ段階数 → 入力チャンネル数
-  - 行動空間の定義 → policy head の出力次元
-- 学習ハイパーパラメータ（学習率・バッチ・シミュレーション数など）
-- リプレイバッファサイズ・更新頻度
-- 旧 vs 新ネットの採用判定基準
-- どのチェックポイント群を「弱・中・強」に割り当てるか（学習結果を見て決定）
+学習開始前にすべて主要決定済み。以下は学習中・学習後に観察・調整する項目:
+- 各種学習ハイパーパラメータの最終値（§2.4 が初期値）
+- プリセットサンプル比（50/50 → 観察次第で 30/70 等にシフト）
+- どの学習ステップのチェックポイントを難易度 1〜10 に割り当てるか
+- 量子化（int8）の要否
+- 学習収束までの実時間（探索空間が Connect4 級なので数日〜1週間程度を見込む）
 
 ---
 
