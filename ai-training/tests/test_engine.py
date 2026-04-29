@@ -52,7 +52,7 @@ def test_lineof3_win_horizontal() -> None:
         PlaceFromReserveMove(player=Player.P2, size_id="S", to_row=2, to_col=0),
         PlaceFromReserveMove(player=Player.P1, size_id="L", to_row=0, to_col=1),
         PlaceFromReserveMove(player=Player.P2, size_id="S", to_row=2, to_col=1),
-        PlaceFromReserveMove(player=Player.P1, size_id="L", to_row=0, to_col=2),
+        PlaceFromReserveMove(player=Player.P1, size_id="M", to_row=0, to_col=2),
     ]
     for m in moves:
         state = apply_move(state, m)
