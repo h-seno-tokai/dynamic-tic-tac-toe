@@ -26,6 +26,7 @@ const OUTER_PX: Record<PieceDisplaySize, number> = {
   sm: 24,
   md: 40,
   lg: 64,
+  fill: 0,
 };
 
 /** Min/max radius ratio relative to outer box (0..0.5). */

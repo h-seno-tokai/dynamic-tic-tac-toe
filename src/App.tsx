@@ -4,7 +4,6 @@ import {
   CpuSetupPage,
   LocalSetupPage,
   PlayPage,
-  ResultPage,
   RulesPage,
   SettingsPage,
   StatsPage,
@@ -60,7 +59,6 @@ export const App = () => {
         <Route path="/local/setup" element={<LocalSetupPage />} />
         <Route path="/cpu/setup" element={<CpuSetupPage />} />
         <Route path="/play" element={<PlayPage />} />
-        <Route path="/result" element={<ResultPage />} />
         <Route path="/rules" element={<RulesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/stats" element={<StatsPage />} />

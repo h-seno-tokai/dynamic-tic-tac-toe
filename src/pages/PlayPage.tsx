@@ -4,8 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Flag, RotateCcw } from 'lucide-react';
 import { Board, MoveHistory, ReserveStack } from '@/components/game';
 import { Button } from '@/components/primitives';
-import { AiClient, selectFallbackMove } from '@/ai';
 import { UserAvatar } from '@/components/avatar';
+import { AiClient, selectFallbackMove } from '@/ai';
 import { engine, type GameState, type Move, type Position } from '@/domain';
 import { playBgm, playSfx, stopBgm } from '@/infra';
 import { useGameStore, useSessionStore } from '@/stores';
@@ -26,12 +26,22 @@ function topOwnerAt(state: GameState, pos: Position) {
 
 export const PlayPage = () => {
   const navigate = useNavigate();
-  const { currentGame, mode, humanSide, cpuDifficulty, applyMove, undo, surrender } =
-    useGameStore();
+  const {
+    currentGame,
+    mode,
+    humanSide,
+    cpuDifficulty,
+    applyMove,
+    undo,
+    surrender,
+    startNewGame,
+    endGame,
+  } = useGameStore();
   const session = useSessionStore();
   const [selection, setSelection] = useState<Selection>(null);
   const [message, setMessage] = useState('手駒か盤上の自分の駒を選んでください。');
   const [invalidFlash, setInvalidFlash] = useState(false);
+  const [showResult, setShowResult] = useState(false);
   const [aiReady, setAiReady] = useState(false);
   const prevOutcomeRef = useRef(currentGame?.outcome);
   const aiClientRef = useRef<AiClient | null>(null);
@@ -41,7 +51,6 @@ export const PlayPage = () => {
     return () => stopBgm();
   }, []);
 
-  // Initialize AI worker (CPU mode only).
   useEffect(() => {
     if (mode !== 'cpu') return;
     const client = new AiClient(MODEL_URL);
@@ -60,10 +69,11 @@ export const PlayPage = () => {
     const prev = prevOutcomeRef.current;
     const curr = currentGame?.outcome;
     if ((prev === null || prev === undefined) && curr != null) {
-      navigate('/result');
+      setShowResult(true);
+      playSfx('fanfare');
     }
     prevOutcomeRef.current = curr;
-  }, [currentGame?.outcome, navigate]);
+  }, [currentGame?.outcome]);
 
   const isCpuTurn = mode === 'cpu' && humanSide !== null && currentGame?.toMove !== humanSide;
 
@@ -104,14 +114,25 @@ export const PlayPage = () => {
 
   if (!currentGame) return <Navigate to="/" replace />;
 
-  const currentName =
-    currentGame.toMove === 'P1'
-      ? (session.lastP1Name ?? 'Player 1')
-      : (session.lastP2Name ?? 'Player 2');
-  const currentAvatarSeed =
-    currentGame.toMove === 'P1'
-      ? (session.lastP1AvatarId ?? 'haru')
-      : (session.lastP2AvatarId ?? 'aoi');
+  const p1Name = session.lastP1Name ?? 'Player 1';
+  const p2Name = session.lastP2Name ?? 'Player 2';
+  const p1AvatarSeed = session.lastP1AvatarId ?? 'haru';
+  const p2AvatarSeed = session.lastP2AvatarId ?? 'aoi';
+
+  // In CPU mode the CPU side always shows as "AI", never reads its session slot.
+  const cpuSide = mode === 'cpu' && humanSide != null ? (humanSide === 'P1' ? 'P2' : 'P1') : null;
+
+  const resolveName = (player: 'P1' | 'P2') =>
+    cpuSide === player ? 'AI' : player === 'P1' ? p1Name : p2Name;
+  const resolveAvatar = (player: 'P1' | 'P2') =>
+    cpuSide === player ? 'cpu-robot' : player === 'P1' ? p1AvatarSeed : p2AvatarSeed;
+
+  const currentName = resolveName(currentGame.toMove);
+  const currentAvatarSeed = resolveAvatar(currentGame.toMove);
+
+  const outcome = currentGame.outcome;
+  const winnerName = outcome === 'draw' || outcome == null ? null : resolveName(outcome);
+  const winnerAvatarSeed = outcome === 'draw' || outcome == null ? null : resolveAvatar(outcome);
 
   const highlight = legalMoves
     .filter((move) => {
@@ -180,6 +201,25 @@ export const PlayPage = () => {
     playSfx('pickup');
     setSelection({ kind: 'reserve', sizeId });
     setMessage('配置先を選んでください。');
+  };
+
+  const handleRematch = () => {
+    if (mode === 'cpu') {
+      startNewGame(currentGame.rules, 'cpu', {
+        difficulty: cpuDifficulty ?? 1,
+        humanSide: humanSide ?? 'P1',
+      });
+    } else {
+      startNewGame(currentGame.rules, 'local-2p');
+    }
+    setShowResult(false);
+    setSelection(null);
+    setMessage('手駒か盤上の自分の駒を選んでください。');
+  };
+
+  const handleMenu = () => {
+    endGame();
+    navigate('/');
   };
 
   return (
@@ -297,6 +337,76 @@ export const PlayPage = () => {
           <MoveHistory history={currentGame.history} pieceSizes={currentGame.rules.pieceSizes} />
         </aside>
       </div>
+
+      {/* Result modal overlay */}
+      <AnimatePresence>
+        {showResult && outcome != null && (
+          <motion.div
+            key="result-backdrop"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              className="mx-4 w-full max-w-sm rounded-2xl border border-border bg-bg p-8 shadow-2xl"
+              initial={{ scale: 0.8, opacity: 0, y: 24 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: 24 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+            >
+              <p className="text-sm font-medium text-accent">Result</p>
+              <motion.h2
+                className="mt-1 text-4xl font-bold tracking-normal"
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
+              >
+                勝負あり！
+              </motion.h2>
+
+              <motion.div
+                className="mt-5"
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3, duration: 0.3 }}
+              >
+                {outcome === 'draw' ? (
+                  <p className="text-2xl font-semibold">引き分け</p>
+                ) : (
+                  <div className="flex items-center gap-4">
+                    {winnerAvatarSeed && winnerName !== 'AI' && (
+                      <UserAvatar seed={winnerAvatarSeed} size={64} label={winnerName ?? ''} />
+                    )}
+                    <div>
+                      <p className="text-2xl font-bold">
+                        {winnerName === 'AI' ? 'AIの勝ち' : winnerName}
+                      </p>
+                      {winnerName !== 'AI' && <p className="text-sm text-muted">の勝ち</p>}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+
+              <motion.div
+                className="mt-8 flex flex-wrap gap-3"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.45 }}
+              >
+                <Button onClick={handleRematch}>再戦</Button>
+                <Button variant="secondary" onClick={handleMenu}>
+                  メニューへ
+                </Button>
+                <Button variant="ghost" onClick={() => setShowResult(false)}>
+                  盤面を見る
+                </Button>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 };
