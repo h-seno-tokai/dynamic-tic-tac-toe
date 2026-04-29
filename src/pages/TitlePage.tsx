@@ -37,7 +37,7 @@ const menuItems = [
 export const TitlePage = () => {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-5 py-6">
-      <header className="flex flex-1 flex-col justify-end pb-8">
+      <header className="pb-8 pt-12">
         <p className="text-sm font-medium text-accent">Gobblet inspired board game</p>
         <h1 className="mt-2 text-4xl font-bold tracking-normal md:text-6xl">Dynamic Tic-Tac-Toe</h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
@@ -50,7 +50,7 @@ export const TitlePage = () => {
           <Link
             key={item.to}
             to={item.to}
-            className="rounded-lg border border-border bg-[color:var(--color-cell-light)] p-4 transition hover:border-accent focus-visible:border-accent"
+            className="rounded-lg border-2 border-border bg-[color:var(--color-cell-light)] p-4 transition hover:border-accent focus-visible:border-accent"
           >
             <div className="flex items-start gap-3">
               <span className="mt-0.5 text-accent">{item.icon}</span>
@@ -62,15 +62,6 @@ export const TitlePage = () => {
           </Link>
         ))}
       </section>
-
-      <footer className="flex flex-wrap gap-2 pb-2 text-sm">
-        <Link
-          to="/local/setup"
-          className="inline-flex h-8 items-center justify-center rounded-md px-3 text-sm font-medium text-fg hover:bg-[color:var(--color-cell-light)]"
-        >
-          すぐ始める
-        </Link>
-      </footer>
     </main>
   );
 };
