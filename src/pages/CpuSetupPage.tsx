@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RULE_PRESETS, type Player, type RulePresetId } from '@/domain';
 import { AvatarPicker, DEFAULT_AVATAR_SEEDS } from '@/components/avatar';
@@ -13,7 +13,20 @@ export const CpuSetupPage = () => {
   const [presetId, setPresetId] = useState<RulePresetId>('3x3-classic');
   const [difficulty, setDifficulty] = useState(3);
   const [humanSide, setHumanSide] = useState<Player>('P1');
+  const [humanName, setHumanName] = useState(session.lastP1Name ?? 'Player 1');
   const [avatar, setAvatar] = useState(session.lastP1AvatarId ?? DEFAULT_AVATAR_SEEDS[0]);
+
+  // When humanSide changes, restore the previously saved name/avatar for that slot.
+  useEffect(() => {
+    if (humanSide === 'P1') {
+      setHumanName(session.lastP1Name ?? 'Player 1');
+      setAvatar(session.lastP1AvatarId ?? DEFAULT_AVATAR_SEEDS[0]);
+    } else {
+      setHumanName(session.lastP2Name ?? 'Player 2');
+      setAvatar(session.lastP2AvatarId ?? DEFAULT_AVATAR_SEEDS[1]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [humanSide]);
 
   const selectedPreset = useMemo(
     () => RULE_PRESETS.find((preset) => preset.id === presetId) ?? RULE_PRESETS[0],
@@ -21,9 +34,12 @@ export const CpuSetupPage = () => {
   );
 
   const handleStart = () => {
+    const trimmed = humanName.trim() || (humanSide === 'P1' ? 'Player 1' : 'Player 2');
     if (humanSide === 'P1') {
+      session.setLastP1Name(trimmed);
       session.setLastP1AvatarId(avatar);
     } else {
+      session.setLastP2Name(trimmed);
       session.setLastP2AvatarId(avatar);
     }
     startNewGame(selectedPreset.rules, 'cpu', { difficulty, humanSide });
@@ -41,15 +57,26 @@ export const CpuSetupPage = () => {
       </header>
 
       <div className="grid gap-6">
-        <div className="grid gap-3">
-          <span className="text-sm font-semibold">あなたのアバター</span>
-          <AvatarPicker
-            value={avatar}
-            onChange={setAvatar}
-            label="プレイヤーアバター"
-            getSeedLabel={(seed) => `アバター ${seed}`}
-          />
-        </div>
+        <fieldset className="grid gap-3">
+          <legend className="text-sm font-semibold">あなたのプロフィール</legend>
+          <label className="grid gap-1.5">
+            <span className="text-xs text-muted">名前</span>
+            <input
+              value={humanName}
+              onChange={(e) => setHumanName(e.target.value)}
+              className="h-10 rounded-md border border-border bg-bg px-3 text-base"
+            />
+          </label>
+          <div className="grid gap-1.5">
+            <span className="text-xs text-muted">アバター</span>
+            <AvatarPicker
+              value={avatar}
+              onChange={setAvatar}
+              label="プレイヤーアバター"
+              getSeedLabel={(seed) => `アバター ${seed}`}
+            />
+          </div>
+        </fieldset>
 
         <Slider
           label={`難易度 ${difficulty}`}
