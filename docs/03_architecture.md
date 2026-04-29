@@ -5,42 +5,22 @@
 完全クライアント完結の **SPA（Single Page Application）**。サーバ側ロジックは持たない。
 GitHub Pages 上に静的ファイルとしてデプロイし、モデル重みも同一オリジンから配信する。
 
-```
-┌──────────────────────────────────────────┐
-│  Browser (Client)                        │
-│                                          │
-│  ┌────────────────────────────────────┐  │
-│  │  React UI Layer (Main thread)      │  │
-│  │   - 画面・コンポーネント            │  │
-│  │   - アニメーション                  │  │
-│  └──────────────┬─────────────────────┘  │
-│                 │ Zustand store           │
-│  ┌──────────────┴─────────────────────┐  │
-│  │  Application Layer                 │  │
-│  │   - Game flow / 設定 / 戦績        │  │
-│  └──────────────┬─────────────────────┘  │
-│                 │                         │
-│  ┌──────────────┴─────────────────────┐  │
-│  │  Domain Layer (Pure TS)            │  │
-│  │   - GameRules / Board / Move       │  │
-│  │   - Rule-driven Engine (拡張可能)   │  │
-│  └────────────────────────────────────┘  │
-│                                          │
-│  ┌────────────────────────────────────┐  │
-│  │  Web Worker (AI thread)            │  │
-│  │   - MCTS                           │  │
-│  │   - ONNX Runtime Web (推論)        │  │
-│  └────────────────────────────────────┘  │
-│                                          │
-│  ┌────────────────────────────────────┐  │
-│  │  Infrastructure                    │  │
-│  │   - i18n / Audio / Storage / Theme │  │
-│  └────────────────────────────────────┘  │
-└──────────────────────────────────────────┘
-            │
-            │ fetch (model weights)
-            ▼
-   GitHub Pages (Static)
+```mermaid
+flowchart TB
+    subgraph Browser["Browser (Client)"]
+        UI["React UI Layer (Main thread)<br/>・画面・コンポーネント<br/>・アニメーション"]
+        App["Application Layer<br/>・Game flow / 設定 / 戦績"]
+        Domain["Domain Layer (Pure TS)<br/>・GameRules / Board / Move<br/>・Rule-driven Engine（拡張可能）"]
+        Worker["Web Worker (AI thread)<br/>・MCTS<br/>・ONNX Runtime Web（推論）"]
+        Infra["Infrastructure<br/>・i18n / Audio / Storage / Theme"]
+
+        UI -- "Zustand store" --> App
+        App --> Domain
+        UI <-- "postMessage" --> Worker
+    end
+
+    Static["GitHub Pages (Static)"]
+    Browser -- "fetch (model weights)" --> Static
 ```
 
 ## 2. レイヤ構成

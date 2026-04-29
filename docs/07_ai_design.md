@@ -133,25 +133,32 @@ Phase A 段階で公開する場合、4x4 プリセットは「2人対戦のみ�
 
 ### 2.2 ネットワーク構造（ResNet）
 
-```
-Input (4×4×27)
-   ↓
-Stem: Conv3×3 (27→128) + BN + ReLU
-   ↓
-ResBlock × 8
-  ├ Conv3×3 (128→128) + BN + ReLU
-  └ Conv3×3 (128→128) + BN + skip + ReLU
-   ↓
-   ┌────────────────┴────────────────┐
-   ↓                                 ↓
-Policy Head                      Value Head
-─ Conv1×1 (128→4)                ─ Conv1×1 (128→32) + BN + ReLU
-   → reshape: PlaceLogits 64-d   ─ Global Average Pool
-─ Conv1×1 (128→16)               ─ Linear (32→64) + ReLU
-   → reshape: MoveLogits 256-d   ─ Linear (64→1) + tanh
-─ Concat → 320-d
-─ legal-action mask (-∞)
-─ Softmax
+```mermaid
+flowchart TB
+    Input["Input: 4×4×27"]
+    Stem["Stem: Conv3×3 (27→128) + BN + ReLU"]
+    Res["ResBlock × 8<br/>Conv3×3 (128→128) + BN + ReLU<br/>Conv3×3 (128→128) + BN + skip + ReLU"]
+
+    Input --> Stem --> Res
+
+    subgraph PolicyHead["Policy Head"]
+        PH1["Conv1×1 (128→4)<br/>→ PlaceLogits 64-d"]
+        PH2["Conv1×1 (128→16)<br/>→ MoveLogits 256-d"]
+        PH3["Concat → 320-d"]
+        PH4["legal-action mask (−∞) → Softmax"]
+        PH1 & PH2 --> PH3 --> PH4
+    end
+
+    subgraph ValueHead["Value Head"]
+        VH1["Conv1×1 (128→32) + BN + ReLU"]
+        VH2["Global Average Pool"]
+        VH3["Linear (32→64) + ReLU"]
+        VH4["Linear (64→1) + tanh"]
+        VH1 --> VH2 --> VH3 --> VH4
+    end
+
+    Res --> PolicyHead
+    Res --> ValueHead
 ```
 
 アーキテクチャ定数:
