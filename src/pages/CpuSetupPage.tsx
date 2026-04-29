@@ -52,7 +52,7 @@ export const CpuSetupPage = () => {
         <p className="text-sm font-medium text-accent">CPU match</p>
         <h1 className="mt-2 text-3xl font-bold tracking-normal">CPU対戦</h1>
         <p className="mt-2 text-sm leading-6 text-muted">
-          学習済みONNXモデルを接続するまでは、合法手ベースの暫定CPUで動かします。
+          強化学習で訓練したAIと対戦します。難易度を選んで挑戦してください。
         </p>
       </header>
 
