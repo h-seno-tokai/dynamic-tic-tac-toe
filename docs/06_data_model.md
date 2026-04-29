@@ -56,8 +56,13 @@ export interface GameRules {
   allowSelfCover: boolean;
 }
 
-/** 既定ルール（3x3、大中小2個ずつ） */
-export const DEFAULT_RULES: GameRules = {
+/**
+ * ユーザーが選択できるルールプリセットは 2 種に限定。
+ * 完全カスタムルールは UI から提供しない（ただし型は GameRules で汎用に保つ）。
+ */
+
+/** プリセットA: 3x3、大中小 各2個（既定） */
+export const PRESET_3X3: GameRules = {
   boardSize: 3,
   pieceSizes: [
     { id: "S", rank: 0, displayName: { ja: "小", en: "Small" } },
@@ -70,20 +75,28 @@ export const DEFAULT_RULES: GameRules = {
   allowSelfCover: true,  // 標準 Gobblet 準拠: 自分の駒の上に被せ可
 };
 
-/** 4x4 拡張プリセット例（極大追加） */
-export const RULES_4X4_XL: GameRules = {
+/** プリセットB: 4x4、巨大・大・中・小 各3個 */
+export const PRESET_4X4_XL: GameRules = {
   boardSize: 4,
   pieceSizes: [
     { id: "S", rank: 0, displayName: { ja: "小", en: "Small" } },
     { id: "M", rank: 1, displayName: { ja: "中", en: "Medium" } },
     { id: "L", rank: 2, displayName: { ja: "大", en: "Large" } },
-    { id: "XL", rank: 3, displayName: { ja: "極大", en: "X-Large" } },
+    { id: "XL", rank: 3, displayName: { ja: "巨大", en: "Huge" } },
   ],
-  piecesPerSize: [2, 2, 2, 2],
+  piecesPerSize: [3, 3, 3, 3],
   winCondition: { kind: "lineOfN", n: 4 },
   allowSameSizeCover: false,
   allowSelfCover: true,
 };
+
+/** ユーザーに提示するプリセット一覧（並び順固定） */
+export const RULE_PRESETS = [
+  { id: "3x3-classic", label: { ja: "3x3 クラシック", en: "3x3 Classic" }, rules: PRESET_3X3 },
+  { id: "4x4-huge", label: { ja: "4x4 巨大入り", en: "4x4 Huge" }, rules: PRESET_4X4_XL },
+] as const;
+
+export type RulePresetId = typeof RULE_PRESETS[number]["id"];
 
 /** AI ユニバーサルネットワークが対応する上限（学習時に固定） */
 export const AI_LIMITS = {
@@ -208,9 +221,11 @@ export interface GameEngine {
 
 ### 4.1 入力テンソル化（ユニバーサルネットワーク方式）
 - 入力次元は **固定形状** `MAX_BOARD × MAX_BOARD × C`（MAX_BOARD = 4）
-- ルールが既定の 3x3 等の場合は、盤面範囲外を **out-of-board マスクチャネル**で「不可侵」と表現
-- 駒サイズも MAX_PIECE_SIZES = 4 まで対応するチャネル構成。未使用サイズはマスク
-- 詳細は `07_ai_design.md` 1.4 ユニバーサルネットワーク方式 参照
+- 2 プリセットを単一モデルで扱う:
+  - **3x3 プリセット**: 盤外マス・XL サイズを mask チャネルで不可侵化
+  - **4x4 巨大入り**: 全 MAX 範囲を使用
+- アーキテクチャは Fully Convolutional Network（CNN）。Transformer は不採用。
+- 詳細は `07_ai_design.md` 1.4 参照
 
 ### 4.2 行動空間（固定）
 - 行動空間は **固定 320 次元**（MAX_PIECE_SIZES × MAX_BOARD² + MAX_BOARD⁴ = 4 × 16 + 256）
@@ -218,7 +233,9 @@ export interface GameEngine {
   - PlaceFromReserve: 4 × 16 = 64
   - MoveOnBoard: 16 × 16 = 256
 - 各ルールでは合法でない行動を **−∞ マスク** して softmax にかける
-- 既定ルール（3x3、3サイズ）で実際に有効な行動は 27 + 81 = 108 / 320
+- プリセット別の有効行動数:
+  - 3x3 プリセット: 27 + 81 = 108 / 320
+  - 4x4 巨大入り: 320 / 320（全有効）
 
 ## 5. localStorage スキーマ
 
@@ -251,13 +268,14 @@ interface PersistedSession {
 
 ## 6. 確定事項 / 未決事項
 
-### 確定（今回）
+### 確定
 - 勝利条件: lineOfN で N = boardSize（縦・横・斜め）
-- 引き分け条件: 合法手なし（`legalMoves(state).length === 0` かつ未終局）
+- 引き分け条件: 合法手なし
 - 覆い被せ: `allowSameSizeCover: false` / `allowSelfCover: true`（標準 Gobblet 準拠）
-- 盤外スタック: 単純なサイズ別カウント（取り出し順制約なし）
-- カスタムルール時の CPU: ユニバーサルネットワークで同モデル流用（AI_LIMITS 範囲内）
+- 盤外スタック: サイズ別カウントのみ
+- ルール選択: **2 プリセット固定**（PRESET_3X3 / PRESET_4X4_XL）。完全カスタム UI は提供しない
+- AI: 単一ユニバーサル CNN で両プリセットをカバー
+- リプレイ永続化: **不要**。戦績のみ localStorage 保存
 
-### 未決
-- 入力テンソル化のチャンネル設計詳細（ユーザー単独決定）
-- リプレイ（履歴）データを localStorage に永続化するか
+### 未決（ユーザー決定）
+- 入力テンソル化のチャンネル設計詳細
