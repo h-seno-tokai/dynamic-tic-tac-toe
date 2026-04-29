@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Flag, RotateCcw } from 'lucide-react';
 import { Board, MoveHistory, ReserveStack } from '@/components/game';
 import { Button } from '@/components/primitives';
-import { selectFallbackMove } from '@/ai';
+import { AiClient, selectFallbackMove } from '@/ai';
 import { UserAvatar } from '@/components/avatar';
 import { engine, type GameState, type Move, type Position } from '@/domain';
 import { playBgm, playSfx, stopBgm } from '@/infra';
 import { useGameStore, useSessionStore } from '@/stores';
+
+const MODEL_URL = '/model.onnx';
 
 type Selection = { kind: 'reserve'; sizeId: string } | { kind: 'board'; from: Position } | null;
 
@@ -28,29 +31,71 @@ export const PlayPage = () => {
   const session = useSessionStore();
   const [selection, setSelection] = useState<Selection>(null);
   const [message, setMessage] = useState('手駒か盤上の自分の駒を選んでください。');
+  const [invalidFlash, setInvalidFlash] = useState(false);
+  const [aiReady, setAiReady] = useState(false);
+  const prevOutcomeRef = useRef(currentGame?.outcome);
+  const aiClientRef = useRef<AiClient | null>(null);
 
   useEffect(() => {
     playBgm('game');
     return () => stopBgm();
   }, []);
 
+  // Initialize AI worker (CPU mode only).
   useEffect(() => {
-    if (currentGame?.outcome !== null && currentGame?.outcome !== undefined) {
+    if (mode !== 'cpu') return;
+    const client = new AiClient(MODEL_URL);
+    aiClientRef.current = client;
+    client
+      .ready()
+      .then(() => setAiReady(true))
+      .catch(() => setAiReady(false));
+    return () => {
+      client.dispose();
+      aiClientRef.current = null;
+    };
+  }, [mode]);
+
+  useEffect(() => {
+    const prev = prevOutcomeRef.current;
+    const curr = currentGame?.outcome;
+    if ((prev === null || prev === undefined) && curr != null) {
       navigate('/result');
     }
+    prevOutcomeRef.current = curr;
   }, [currentGame?.outcome, navigate]);
 
   const isCpuTurn = mode === 'cpu' && humanSide !== null && currentGame?.toMove !== humanSide;
 
   useEffect(() => {
     if (!isCpuTurn || currentGame?.outcome !== null) return;
-    const id = setTimeout(() => {
-      const move = selectFallbackMove(currentGame, cpuDifficulty ?? 5);
-      applyMove(move);
-      playSfx('place');
-    }, 700);
-    return () => clearTimeout(id);
-  }, [isCpuTurn, currentGame, cpuDifficulty, applyMove]);
+    let cancelled = false;
+
+    const runCpuTurn = async () => {
+      const client = aiClientRef.current;
+      let move: Move;
+      if (client && aiReady) {
+        try {
+          move = await client.requestMove(currentGame, cpuDifficulty ?? 5);
+        } catch {
+          move = selectFallbackMove(currentGame, cpuDifficulty ?? 5);
+        }
+      } else {
+        await new Promise((r) => setTimeout(r, 700));
+        move = selectFallbackMove(currentGame, cpuDifficulty ?? 5);
+      }
+      if (!cancelled) {
+        applyMove(move);
+        playSfx('place');
+      }
+    };
+
+    void runCpuTurn();
+    return () => {
+      cancelled = true;
+      aiClientRef.current?.cancel();
+    };
+  }, [isCpuTurn, currentGame, cpuDifficulty, applyMove, aiReady]);
 
   const legalMoves = useMemo(
     () => (currentGame ? engine.legalMoves(currentGame) : []),
@@ -88,7 +133,9 @@ export const PlayPage = () => {
       return;
     }
     playSfx('invalid');
-    setMessage('その手は合法手ではありません。');
+    setMessage('その手は無理です！');
+    setInvalidFlash(true);
+    setTimeout(() => setInvalidFlash(false), 600);
   };
 
   const handleCellClick = (pos: Position) => {
@@ -146,7 +193,7 @@ export const PlayPage = () => {
             </p>
             <h1 className="text-2xl font-bold tracking-normal">{currentName} の手番</h1>
             <p role="status" className="mt-1 text-sm text-muted">
-              {isCpuTurn ? 'CPU が考えています…' : message}
+              {isCpuTurn ? (aiReady ? 'AI が考えています…' : 'AI モデル読み込み中…') : message}
             </p>
           </div>
         </div>
@@ -204,7 +251,11 @@ export const PlayPage = () => {
             />
           </div>
 
-          <div className="mx-auto aspect-square w-full max-w-[min(78vh,38rem)]">
+          <motion.div
+            className="relative mx-auto aspect-square w-full max-w-[min(78vh,38rem)]"
+            animate={invalidFlash ? { x: [-6, 6, -6, 6, -3, 3, 0] } : { x: 0 }}
+            transition={{ duration: 0.4, ease: 'easeInOut' }}
+          >
             <Board
               state={currentGame}
               onCellClick={handleCellClick}
@@ -212,7 +263,23 @@ export const PlayPage = () => {
               disabled={isCpuTurn}
               aria-label="対局盤"
             />
-          </div>
+            <AnimatePresence>
+              {invalidFlash && (
+                <motion.div
+                  key="invalid-overlay"
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
+                  transition={{ duration: 0.15 }}
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg"
+                >
+                  <span className="rounded-full bg-red-600/90 px-5 py-2 text-lg font-bold text-white shadow-lg">
+                    その手は無理です！
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </section>
 
         <aside className="grid content-start gap-3">
