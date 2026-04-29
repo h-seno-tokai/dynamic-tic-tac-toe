@@ -26,8 +26,8 @@ from .rules import MAX_BOARD, MOVE_ACTIONS, PLACE_ACTIONS, TOTAL_ACTIONS
 
 # Architecture constants - DO NOT change without updating the design doc.
 INPUT_CHANNELS: int = 27
-TRUNK_CHANNELS: int = 64
-NUM_RES_BLOCKS: int = 4
+TRUNK_CHANNELS: int = 128
+NUM_RES_BLOCKS: int = 8
 PLACE_HEAD_CHANNELS: int = 4   # 4 sizes
 MOVE_HEAD_CHANNELS: int = 16   # 16 from-cells (4x4)
 VALUE_HEAD_CHANNELS: int = 32

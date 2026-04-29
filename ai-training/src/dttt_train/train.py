@@ -34,6 +34,7 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from .network import DTTTNet
+from .parallel_selfplay import play_games_parallel
 from .replay_buffer import ReplayBuffer
 from .rules import PRESET_3X3, PRESET_4X4_XL, GameRules
 from .selfplay import play_game
@@ -82,12 +83,34 @@ def _train_step(
 # ---------------------------------------------------------------------------
 
 
-def _save_checkpoint(ckpt_dir: Path, net: DTTTNet, step: int) -> None:
+def _save_checkpoint(
+    ckpt_dir: Path,
+    net: DTTTNet,
+    optim: torch.optim.Optimizer,
+    step: int,
+) -> None:
+    state = {"step": step, "model_state": net.state_dict(), "optim_state": optim.state_dict()}
     path = ckpt_dir / f"ckpt_{step:06d}.pt"
-    torch.save({"step": step, "model_state": net.state_dict()}, path)
-    latest = ckpt_dir / "latest.pt"
-    torch.save({"step": step, "model_state": net.state_dict()}, latest)
+    torch.save(state, path)
+    torch.save(state, ckpt_dir / "latest.pt")
     logger.info("checkpoint saved -> %s", path)
+
+
+def _load_checkpoint(
+    ckpt_dir: Path,
+    net: DTTTNet,
+    optim: torch.optim.Optimizer,
+) -> int:
+    latest = ckpt_dir / "latest.pt"
+    if not latest.exists():
+        return 0
+    state = torch.load(latest, map_location="cpu")
+    net.load_state_dict(state["model_state"])
+    if "optim_state" in state:
+        optim.load_state_dict(state["optim_state"])
+    step = int(state["step"])
+    logger.info("resumed from %s  (step %d)", latest, step)
+    return step
 
 
 # ---------------------------------------------------------------------------
@@ -97,9 +120,10 @@ def _save_checkpoint(ckpt_dir: Path, net: DTTTNet, step: int) -> None:
 
 def _run_single_process(args: argparse.Namespace) -> None:
     device = torch.device(args.device)
+    num_parallel = max(1, args.num_parallel)
     logger.info(
-        "single-process  device=%s  sims=%d  batch=%d  steps=%d  warmup=%d",
-        device, args.num_sims, args.batch_size, args.total_steps, args.warmup_games,
+        "single-process  device=%s  parallel=%d  sims=%d  batch=%d  steps=%d",
+        device, num_parallel, args.num_sims, args.batch_size, args.total_steps,
     )
 
     ckpt_dir = Path(args.ckpt_dir)
@@ -108,46 +132,62 @@ def _run_single_process(args: argparse.Namespace) -> None:
     net = DTTTNet().to(device)
     net.eval()
     optim = AdamW(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    scheduler = CosineAnnealingLR(optim, T_max=max(1, args.total_steps))
+    scheduler = CosineAnnealingLR(optim, T_max=max(1, args.total_steps), eta_min=1e-5)
     buffer = ReplayBuffer(capacity=args.replay_capacity)
 
-    rng_preset = random.Random(args.seed)
-    rng_buf = np.random.default_rng(args.seed)
-    games_played = 0
-    train_step = 0
+    start_step = _load_checkpoint(ckpt_dir, net, optim) if args.resume else 0
+    if start_step > 0:
+        for _ in range(start_step):
+            scheduler.step()
+        logger.info("scheduler fast-forwarded to step %d", start_step)
+
+    rng_preset = random.Random(args.seed + start_step)
+    rng_buf = np.random.default_rng(args.seed + start_step)
+    games_played = start_step * num_parallel
+    train_step = start_step
 
     while train_step < args.total_steps:
-        # --- generate one game ---
-        rules = _sample_preset(rng_preset, args.ratio_3x3)
-        samples = play_game(net, rules, num_sims=args.num_sims, seed=args.seed + games_played)
-        buffer.extend(samples)
-        games_played += 1
+        # --- generate num_parallel games in one batched GPU call ---
+        rules_list = [_sample_preset(rng_preset, args.ratio_3x3) for _ in range(num_parallel)]
+        all_game_samples = play_games_parallel(
+            net,
+            rules_list,
+            num_sims=args.num_sims,
+        )
+        total_moves = 0
+        for game_samples in all_game_samples:
+            buffer.extend(game_samples)
+            total_moves += len(game_samples)
+        games_played += num_parallel
 
         if len(buffer) < args.batch_size:
             logger.info(
-                "warmup game %d/%d  moves=%d  buffer=%d/%d",
-                games_played, args.warmup_games, len(samples), len(buffer), args.batch_size,
+                "warmup  games=%d  moves_this_batch=%d  buffer=%d/%d",
+                games_played, total_moves, len(buffer), args.batch_size,
             )
             continue
 
-        # --- one gradient step per game (after warmup) ---
-        states_np, policies_np, values_np = buffer.sample(args.batch_size, rng=rng_buf)
-        states = torch.from_numpy(states_np).to(device)
-        policies = torch.from_numpy(policies_np).to(device)
-        values = torch.from_numpy(values_np).to(device)
+        # --- num_parallel gradient steps per game batch (1:1 ratio) ---
+        for _ in range(num_parallel):
+            if train_step >= args.total_steps:
+                break
+            states_np, policies_np, values_np = buffer.sample(args.batch_size, rng=rng_buf)
+            states = torch.from_numpy(states_np).to(device)
+            policies = torch.from_numpy(policies_np).to(device)
+            values = torch.from_numpy(values_np).to(device)
 
-        total, pol, val = _train_step(net, optim, states, policies, values)
-        scheduler.step()
-        train_step += 1
+            total, pol, val = _train_step(net, optim, states, policies, values)
+            scheduler.step()
+            train_step += 1
 
-        logger.info(
-            "step %d/%d  total=%.4f  policy=%.4f  value=%.4f  lr=%.2e  games=%d",
-            train_step, args.total_steps, total, pol, val,
-            scheduler.get_last_lr()[0], games_played,
-        )
-
-        if train_step % args.ckpt_every == 0 or train_step == args.total_steps:
-            _save_checkpoint(ckpt_dir, net, train_step)
+            if train_step % 100 == 0 or train_step == args.total_steps:
+                logger.info(
+                    "step %d/%d  total=%.4f  policy=%.4f  value=%.4f  lr=%.2e  games=%d",
+                    train_step, args.total_steps, total, pol, val,
+                    scheduler.get_last_lr()[0], games_played,
+                )
+            if train_step % args.ckpt_every == 0 or train_step == args.total_steps:
+                _save_checkpoint(ckpt_dir, net, optim, train_step)
 
 
 # ---------------------------------------------------------------------------
@@ -268,8 +308,12 @@ def _run_multi_process(args: argparse.Namespace) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="DTTT AlphaZero training")
-    parser.add_argument("--total-steps", type=int, default=500,
-                        help="number of gradient steps (approx = number of games after warmup)")
+    parser.add_argument("--total-steps", type=int, default=1500,
+                        help="number of gradient steps (approx = number of game batches after warmup)")
+    parser.add_argument("--resume", action="store_true",
+                        help="resume from latest.pt in --ckpt-dir if it exists")
+    parser.add_argument("--num-parallel", type=int, default=16,
+                        help="number of games to run simultaneously per step (batched GPU eval)")
     parser.add_argument("--num-workers", type=int, default=0,
                         help="0 = single-process GPU mode (recommended)")
     parser.add_argument("--num-sims", type=int, default=DEFAULT_MCTS_SIMS)
