@@ -1,0 +1,59 @@
+# Normalize line endings: クロスプラットフォームで LF に統一
+* text=auto eol=lf
+
+# Source files (text)
+*.ts        text
+*.tsx       text
+*.js        text
+*.jsx       text
+*.json      text
+*.md        text
+*.html      text
+*.css       text
+*.scss      text
+*.yml       text
+*.yaml      text
+*.toml      text
+*.py        text
+
+# Shell / Windows scripts (preserve native line endings)
+*.sh        text eol=lf
+*.bat       text eol=crlf
+*.ps1       text eol=crlf
+
+# Binary assets
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.webp      binary
+*.ico       binary
+*.svg       text
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.eot       binary
+*.otf       binary
+*.mp3       binary
+*.ogg       binary
+*.wav       binary
+*.m4a       binary
+
+# ML artifacts
+*.onnx      binary
+*.pt        binary
+*.pth       binary
+*.ckpt      binary
+*.npy       binary
+*.npz       binary
+
+# Lock files: マージコンフリクトを抑制
+package-lock.json   -diff
+pnpm-lock.yaml      -diff
+yarn.lock           -diff
+poetry.lock         -diff
+uv.lock             -diff
+
+# GitHub linguist: ML 学習コードを言語統計に反映させる
+ai-training/** linguist-detectable=true
+docs/**        linguist-documentation=true

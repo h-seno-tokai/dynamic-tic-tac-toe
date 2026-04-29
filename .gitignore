@@ -1,0 +1,92 @@
+# ===== Node / Frontend =====
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.vite/
+.next/
+.turbo/
+
+# ===== Coverage / Test artifacts =====
+coverage/
+.nyc_output/
+*.lcov
+playwright-report/
+test-results/
+
+# ===== Environment =====
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ===== Logs =====
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ===== Python / ML training =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+*.egg-info/
+.eggs/
+build/
+sdist/
+
+# Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.dmypy.json
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ===== ML training artifacts =====
+# 学習チェックポイント・リプレイバッファ等は巨大なため除外
+ai-training/checkpoints/
+ai-training/runs/
+ai-training/wandb/
+ai-training/logs/
+ai-training/data/
+ai-training/replay_buffer/
+*.pt
+*.pth
+*.ckpt
+# 注: 配信用 ONNX モデル (*.onnx) は意図的に追跡対象とする (public/models/ 配下を想定)
+
+# ===== IDE / Editor =====
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ===== Misc =====
+.cache/
+*.tmp
+.history/
