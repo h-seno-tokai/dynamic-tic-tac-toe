@@ -96,6 +96,13 @@ export const PlayPage = () => {
         try {
           move = await client.requestMove(currentGame, cpuDifficulty ?? 5);
         } catch {
+          // Worker rejected the request. For 3x3 this never depends on
+          // ONNX (alpha-beta solver), but for 4x4 a model-load failure
+          // surfaces here. Flip to 'failed' so the banner explains the
+          // fallback the user is now seeing.
+          if (currentGame.rules.boardSize > 3) {
+            setAiStatus('failed');
+          }
           move = selectFallbackMove(currentGame, cpuDifficulty ?? 5);
         }
       } else {

@@ -3,12 +3,16 @@
  *
  * Dispatches by `state.rules.boardSize`:
  *   - 3 → strong alpha-beta solver (`Solver3x3`); does not require ONNX init.
- *   - 4 → universal-network MCTS via `InferenceEngine` + `MCTS`. Requires
- *         `init` to have completed first; the `ready` event signals that.
+ *   - 4 → universal-network MCTS via `InferenceEngine` + `MCTS`. ONNX is
+ *         loaded lazily on the first 4x4 request so a transient model-load
+ *         failure does not break the 3x3 path.
  *
- * The `ready` event fires only when the ONNX model has loaded so the UI knows
- * it's safe to start a 4x4 game. 3x3 requests are accepted regardless of
- * whether ONNX init has completed (the solver is self-contained).
+ * `init` records the model URL and posts `ready` immediately. The 3x3 solver
+ * is self-contained, so the UI can start a 3x3 game without waiting for
+ * ONNX. For 4x4 we attempt the ONNX load on demand; if it fails we surface a
+ * per-request error so the main thread can use its fallback. We retry on
+ * subsequent 4x4 requests (the failure is cached briefly per request, not
+ * permanently) so transient network issues self-heal.
  *
  * Handles `abort` so the main thread can cancel in-flight searches when the
  * user undoes / resigns.
@@ -30,16 +34,44 @@ let mcts: MCTS | null = null;
 let solver3x3: Solver3x3 | null = null;
 let currentRequestId: string | null = null;
 let currentAbortController: AbortController | null = null;
+let modelUrl: string | null = null;
+let onnxLoadPromise: Promise<void> | null = null;
 
 function post(msg: AiResponse): void {
   self.postMessage(msg);
 }
 
-async function handleInit(modelUrl: string): Promise<void> {
-  engine = new InferenceEngine();
-  await engine.load(modelUrl);
-  mcts = new MCTS(engine);
+function handleInit(url: string): void {
+  modelUrl = url;
+  // 3x3 needs no ONNX, so we signal ready immediately. ONNX is loaded
+  // lazily on the first 4x4 request. This keeps 3x3 working even if the
+  // model file or onnxruntime-web wasm assets fail to load.
   post({ type: 'ready' });
+}
+
+/**
+ * Lazily load the ONNX model on first 4x4 request. Memoises the in-flight
+ * promise so concurrent requests share one load. If a load fails we clear
+ * the cached promise so a subsequent request retries.
+ */
+function ensureOnnxLoaded(): Promise<void> {
+  if (engine?.isReady() && mcts) return Promise.resolve();
+  if (onnxLoadPromise) return onnxLoadPromise;
+  if (modelUrl === null) {
+    return Promise.reject(new Error('AI worker: init not called'));
+  }
+  const url = modelUrl;
+  const loadPromise = (async () => {
+    const e = new InferenceEngine();
+    await e.load(url);
+    engine = e;
+    mcts = new MCTS(e);
+  })().catch((err: unknown) => {
+    onnxLoadPromise = null;
+    throw err;
+  });
+  onnxLoadPromise = loadPromise;
+  return loadPromise;
 }
 
 function getOrCreateSolver3x3(): Solver3x3 {
@@ -72,6 +104,17 @@ async function handleRequest(req: Extract<AiRequest, { type: 'request' }>): Prom
       };
       move = await solver.selectMove(state, opts);
     } else {
+      try {
+        await ensureOnnxLoaded();
+      } catch (err) {
+        if (abortController.signal.aborted) return;
+        post({
+          type: 'error',
+          requestId: req.requestId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return;
+      }
       if (!mcts || !engine?.isReady()) {
         post({
           type: 'error',
@@ -110,12 +153,7 @@ self.addEventListener('message', (event: MessageEvent<AiRequest>) => {
   const msg = event.data;
   switch (msg.type) {
     case 'init':
-      void handleInit(msg.modelUrl).catch((err: unknown) => {
-        post({
-          type: 'error',
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
+      handleInit(msg.modelUrl);
       break;
     case 'request':
       void handleRequest(msg);
