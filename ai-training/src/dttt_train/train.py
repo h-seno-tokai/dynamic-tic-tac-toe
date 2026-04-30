@@ -1,14 +1,14 @@
 """AlphaZero training loop for DTTT.
 
-Single-process mode (default, --num-workers 0):
-  Interleaves self-play and gradient updates on the same GPU.
-  Loop: generate ``num_parallel`` games -> ``num_parallel * grad_mult``
-  gradient steps. The data path now also captures root-Q per stored
-  position so the value loss target can mix Q with the final outcome z.
+The main process always interleaves GPU self-play and gradient updates:
+  generate ``num_parallel`` games -> ``num_parallel * grad_mult`` gradient
+  steps. The data path captures root-Q per stored position so the value
+  loss target can mix Q with the final outcome z.
 
-Multi-process mode (--num-workers N, N>=1):
-  N worker processes do self-play on --worker-device (default cpu).
-  Main process does gradient updates on --device (default cuda).
+Optional CPU self-play workers (``--num-workers N``, N>=1):
+  Each worker runs ``play_games_parallel`` on CPU with batch
+  ``--worker-games-per-batch`` and reloads weights from ``latest.pt``
+  periodically. Their games augment the same replay buffer.
 
 Improvements over the AlphaZero scaffold:
   * **WDL value head** (Win / Draw / Loss categorical cross-entropy)
@@ -35,7 +35,9 @@ import logging
 import math
 import multiprocessing as mp
 import os
+import queue as queue_mod
 import random
+import time
 from pathlib import Path
 
 import numpy as np
@@ -48,7 +50,6 @@ from .network import DTTTNet
 from .parallel_selfplay import play_games_parallel
 from .replay_buffer import ReplayBuffer
 from .rules import PRESET_3X3, PRESET_4X4_XL, GameRules
-from .selfplay import play_game
 
 logger = logging.getLogger(__name__)
 
@@ -400,6 +401,16 @@ def _run_single_process(args: argparse.Namespace) -> None:
         threshold=args.sim_threshold,
     )
 
+    # Spawn CPU self-play workers (if requested) BEFORE the loop. Workers
+    # reload weights from ``latest.pt`` periodically; we ensure the file
+    # exists so they can start polling.
+    if args.num_workers > 0:
+        # Seed latest.pt with the current network so workers don't start
+        # with a fresh random net.
+        _save_latest_only(ckpt_dir, net, ema, start_step)
+    workers, worker_queue, worker_stop = _spawn_cpu_workers(args, ckpt_dir)
+    worker_games_total = 0
+
     # Self-play uses the BEST network when gating is on; otherwise the
     # current candidate. EMA, when enabled and gating is off, is also a fine
     # choice (we use it for self-play if --ema is on and --gating is off).
@@ -410,7 +421,12 @@ def _run_single_process(args: argparse.Namespace) -> None:
             return ema.shadow
         return net
 
-    while train_step < args.total_steps:
+    try:
+     while train_step < args.total_steps:
+        # Drain any games waiting from CPU workers BEFORE main's own self-play.
+        wg, _ws = _drain_worker_queue(worker_queue, buffer)
+        worker_games_total += wg
+
         rules_list = [_sample_preset(rng_preset, args.ratio_3x3) for _ in range(num_parallel)]
         all_game_samples = play_games_parallel(
             _selfplay_net(),
@@ -428,10 +444,15 @@ def _run_single_process(args: argparse.Namespace) -> None:
             total_moves += len(game_samples)
         games_played += num_parallel
 
+        # Drain again after main's self-play so the buffer is as fresh as
+        # possible before the gradient steps below.
+        wg2, _ = _drain_worker_queue(worker_queue, buffer)
+        worker_games_total += wg2
+
         if len(buffer) < args.batch_size:
             logger.info(
-                "warmup  games=%d  moves_this_batch=%d  buffer=%d/%d",
-                games_played, total_moves, len(buffer), args.batch_size,
+                "warmup  games=%d  moves_this_batch=%d  buffer=%d/%d  worker_games=%d",
+                games_played, total_moves, len(buffer), args.batch_size, worker_games_total,
             )
             continue
 
@@ -474,6 +495,10 @@ def _run_single_process(args: argparse.Namespace) -> None:
                 )
             if train_step % args.ckpt_every == 0 or train_step == args.total_steps:
                 _save_checkpoint(ckpt_dir, net, optim, train_step, ema)
+            elif args.num_workers > 0 and train_step % args.worker_sync_every == 0:
+                # Frequent lightweight save so CPU workers can pick up fresh
+                # weights between full checkpoints.
+                _save_latest_only(ckpt_dir, net, ema, train_step)
 
             # Best-network gating tournament.
             if args.gating and train_step > 0 and train_step % args.gating_every == 0:
@@ -493,111 +518,179 @@ def _run_single_process(args: argparse.Namespace) -> None:
                     "*** sim count increased to %d (loss plateaued at %.4f) ***",
                     sim_sched.sims, avg_loss,
                 )
+    finally:
+        if worker_stop is not None:
+            worker_stop.set()
+        if workers:
+            for p in workers:
+                p.join(timeout=5)
+                if p.is_alive():
+                    p.terminate()
+            logger.info("CPU workers stopped (received %d worker games total)",
+                        worker_games_total)
 
 
 # ---------------------------------------------------------------------------
-# Multi-process worker (kept simple, no gating / no EMA)
+# CPU self-play worker (augments the GPU main loop with extra games)
 # ---------------------------------------------------------------------------
+#
+# Each worker runs ``play_games_parallel`` with a small batch on CPU.
+# Periodically reloads weights from ``latest.pt`` so it stays close to the
+# current training network. Pushes per-game sample lists to a shared queue
+# that the main process drains every iteration.
 
 
-def _selfplay_worker(
+def _cpu_selfplay_worker(
     worker_id: int,
-    num_sims: int,
+    latest_ckpt_path: str,
     ratio_3x3: float,
+    num_sims: int,
+    games_per_batch: int,
+    pcr_prob: float,
+    reduced_sim_frac: float,
     seed: int,
-    out_queue: "mp.Queue[list[tuple[np.ndarray, np.ndarray, float, float]]]",
-    stop_event: "mp.Event",  # type: ignore[type-arg]
-    device_str: str,
+    out_queue,
+    stop_event,
+    blas_threads: int,
 ) -> None:
-    rng = random.Random(seed + worker_id)
-    np.random.seed(seed + worker_id)
-    torch.manual_seed(seed + worker_id)
+    # Limit BLAS threads so siblings don't fight for the same physical cores.
+    try:
+        torch.set_num_threads(max(1, blas_threads))
+    except Exception:
+        pass
+    os.environ.setdefault("OMP_NUM_THREADS", str(max(1, blas_threads)))
+    os.environ.setdefault("MKL_NUM_THREADS", str(max(1, blas_threads)))
 
-    device = torch.device(device_str)
-    net = DTTTNet().to(device)
+    sd = seed + worker_id * 7919
+    rng = random.Random(sd)
+    np.random.seed(sd)
+    torch.manual_seed(sd)
+
+    net = DTTTNet().to("cpu")
     net.eval()
+    last_mtime: float = 0.0
 
-    game_idx = 0
+    def _maybe_reload() -> None:
+        nonlocal last_mtime
+        try:
+            mtime = os.path.getmtime(latest_ckpt_path)
+        except (FileNotFoundError, OSError):
+            return
+        if mtime <= last_mtime:
+            return
+        try:
+            blob = torch.load(latest_ckpt_path, map_location="cpu", weights_only=False)
+            state = blob.get("ema_state") or blob.get("model_state") or blob
+            net.load_state_dict(state)
+            last_mtime = mtime
+        except Exception:
+            # Mid-write race: skip this reload and try again next round.
+            return
+
     while not stop_event.is_set():
-        rules = _sample_preset(rng, ratio_3x3)
-        samples = play_game(net, rules, num_sims=num_sims, seed=seed + worker_id + game_idx)
-        out_queue.put(samples)
-        game_idx += 1
+        _maybe_reload()
+        rules_list = [_sample_preset(rng, ratio_3x3) for _ in range(games_per_batch)]
+        try:
+            games = play_games_parallel(
+                net, rules_list,
+                num_sims=num_sims,
+                pcr_prob=pcr_prob,
+                reduced_sim_frac=reduced_sim_frac,
+            )
+        except Exception:
+            continue
+        for g in games:
+            try:
+                out_queue.put(g, timeout=10.0)
+            except queue_mod.Full:
+                pass
+            if stop_event.is_set():
+                break
 
 
-def _run_multi_process(args: argparse.Namespace) -> None:
-    device = torch.device(args.device)
-    logger.info(
-        "multi-process  device=%s  worker-device=%s  workers=%d  sims=%d  batch=%d  steps=%d",
-        device, args.worker_device, args.num_workers,
-        args.num_sims, args.batch_size, args.total_steps,
-    )
+def _spawn_cpu_workers(
+    args: argparse.Namespace,
+    ckpt_dir: Path,
+):
+    """Spawn ``args.num_workers`` CPU self-play workers.
 
-    ckpt_dir = Path(args.ckpt_dir)
-    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    Returns ``(workers, queue, stop_event)`` or ``(None, None, None)`` if no
+    workers were requested.
+    """
+    if args.num_workers <= 0:
+        return None, None, None
 
-    net = DTTTNet().to(device)
-    net.eval()
-    optim = AdamW(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    buffer = ReplayBuffer(capacity=args.replay_capacity)
+    latest = ckpt_dir / "latest.pt"
+    # Touch the file so the workers can stat() it; they'll pick up real
+    # weights as soon as the main process writes the first checkpoint.
+    if not latest.exists():
+        torch.save({"step": 0, "model_state": DTTTNet().state_dict()}, latest)
 
     ctx = mp.get_context("spawn")
-    queue: "mp.Queue[list[tuple[np.ndarray, np.ndarray, float, float]]]" = ctx.Queue(maxsize=256)
+    out_queue = ctx.Queue(maxsize=args.worker_queue_max)
     stop_event = ctx.Event()
-
-    workers = []
+    workers: list[mp.Process] = []
     for wid in range(args.num_workers):
         p = ctx.Process(
-            target=_selfplay_worker,
-            args=(wid, args.num_sims, args.ratio_3x3, args.seed, queue, stop_event, args.worker_device),
+            target=_cpu_selfplay_worker,
+            args=(
+                wid,
+                str(latest.resolve()),
+                args.ratio_3x3,
+                args.num_sims,
+                args.worker_games_per_batch,
+                args.pcr_prob,
+                args.reduced_sim_frac,
+                args.seed + 1000,
+                out_queue,
+                stop_event,
+                args.worker_blas_threads,
+            ),
             daemon=True,
         )
         p.start()
         workers.append(p)
+    logger.info(
+        "spawned %d CPU workers  (games_per_batch=%d, blas_threads=%d)",
+        args.num_workers, args.worker_games_per_batch, args.worker_blas_threads,
+    )
+    return workers, out_queue, stop_event
 
-    logger.info("%d workers started...", args.num_workers)
-    rng = np.random.default_rng(args.seed)
-    games_received = 0
-    train_step = 0
 
-    try:
-        while train_step < args.total_steps:
-            samples = queue.get()
-            buffer.extend(samples)
-            games_received += 1
+def _drain_worker_queue(
+    out_queue,
+    buffer: ReplayBuffer,
+    max_drain: int = 64,
+) -> tuple[int, int]:
+    """Pull any available worker games out of ``out_queue``, augment, and add
+    to ``buffer``. Returns ``(games, samples)`` drained.
+    """
+    if out_queue is None:
+        return 0, 0
+    games = 0
+    samples = 0
+    for _ in range(max_drain):
+        try:
+            game = out_queue.get_nowait()
+        except queue_mod.Empty:
+            break
+        for s in game:
+            aug = augment_sample(s[0], s[1], s[2], s[3])
+            buffer.extend(aug)
+            samples += len(aug)
+        games += 1
+    return games, samples
 
-            if len(buffer) < args.batch_size:
-                continue
 
-            states_np, policies_np, values_np, q_np = buffer.sample(args.batch_size, rng=rng)
-            states = torch.from_numpy(states_np).to(device)
-            policies = torch.from_numpy(policies_np).to(device)
-            values = torch.from_numpy(values_np).to(device)
-            q_targets = torch.from_numpy(q_np).to(device)
-
-            total, pol, val = _train_step(
-                net, optim, None, states, policies, values, q_targets,
-                q_mix=args.q_mix,
-                value_loss_weight=args.value_loss_weight,
-                use_amp=False,
-                device_type=device.type,
-            )
-            train_step += 1
-
-            logger.info(
-                "step %d/%d  total=%.4f  policy=%.4f  value=%.4f  games=%d",
-                train_step, args.total_steps, total, pol, val, games_received,
-            )
-
-            if train_step % args.ckpt_every == 0 or train_step == args.total_steps:
-                _save_checkpoint(ckpt_dir, net, optim, train_step)
-    finally:
-        stop_event.set()
-        for p in workers:
-            p.join(timeout=10)
-            if p.is_alive():
-                p.terminate()
-        logger.info("done - %d steps, %d games", train_step, games_received)
+def _save_latest_only(
+    ckpt_dir: Path, net: DTTTNet, ema: _EMA | None, train_step: int,
+) -> None:
+    """Lightweight save of just ``latest.pt`` (no per-step ckpt). Used to keep
+    CPU workers close to the current model without bloating the ckpt dir."""
+    state = {"step": train_step, "model_state": net.state_dict()}
+    if ema is not None:
+        state["ema_state"] = ema.shadow.state_dict()
+    torch.save(state, ckpt_dir / "latest.pt")
 
 
 # ---------------------------------------------------------------------------
@@ -613,7 +706,19 @@ def main(argv: list[str] | None = None) -> None:
 
     parser.add_argument("--grad-mult", type=int, default=8)
     parser.add_argument("--num-parallel", type=int, default=64)
-    parser.add_argument("--num-workers", type=int, default=0)
+    parser.add_argument("--num-workers", type=int, default=0,
+                        help="N CPU self-play workers (in addition to the GPU main loop). "
+                             "Each worker runs play_games_parallel on CPU and "
+                             "reloads weights from latest.pt periodically.")
+    parser.add_argument("--worker-games-per-batch", type=int, default=8,
+                        help="games batched per worker forward pass")
+    parser.add_argument("--worker-blas-threads", type=int, default=1,
+                        help="BLAS threads per worker (set so N*workers ~= phys_cores)")
+    parser.add_argument("--worker-sync-every", type=int, default=50,
+                        help="save latest.pt every N gradient steps so workers "
+                             "can pick up fresh weights")
+    parser.add_argument("--worker-queue-max", type=int, default=256,
+                        help="max games queued from workers before they block")
 
     # MCTS
     parser.add_argument("--num-sims", type=int, default=DEFAULT_MCTS_SIMS)
@@ -668,10 +773,10 @@ def main(argv: list[str] | None = None) -> None:
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    if args.num_workers == 0:
-        _run_single_process(args)
-    else:
-        _run_multi_process(args)
+    # Single entry point: GPU main loop, optionally augmented by CPU workers
+    # (the legacy single-game multi-process worker was broken — workers used
+    # a never-updated random network — and has been removed).
+    _run_single_process(args)
 
 
 if __name__ == "__main__":
