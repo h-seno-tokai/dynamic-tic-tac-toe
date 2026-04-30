@@ -3,36 +3,54 @@
  *
  * Forward signature mirrors `ai-training/src/dttt_train/network.py`:
  *   input  : Float32Array of length 27*4*4 = 432, shape (1, 27, 4, 4)
- *   output : { policy: Float32Array(320) raw logits, value: scalar in [-1, 1] }
+ *   output : {
+ *     policy : Float32Array(320) raw policy logits  (no mask, no softmax)
+ *     wdl    : Float32Array(3)   raw WDL logits     (Win, Draw, Loss)
+ *     value  : number  -- scalar in [-1, 1] derived from softmax(wdl):
+ *                         value = P(win) - P(loss)
+ *   }
  *
- * The ONNX graph emits **raw policy logits** (no mask, no softmax) and a
- * tanh'd value. The legal-action mask is applied in TS by callers (MCTS).
+ * The legal-action mask is applied in TS by callers (MCTS).
  */
 
 import * as ort from 'onnxruntime-web';
 import { MAX_BOARD, NUM_CHANNELS, TENSOR_LENGTH, TOTAL_ACTIONS } from './encoding';
 
+const WDL_OUTPUTS = 3;
+
 export interface InferenceOutput {
   policy: Float32Array;
+  wdl: Float32Array;
   value: number;
 }
 
-/** Names match the conventional torch.onnx.export defaults; configurable. */
 export interface InferenceEngineOptions {
   inputName?: string;
   policyOutputName?: string;
+  /** Either 'wdl_logits' (new) or 'value' (legacy scalar). */
   valueOutputName?: string;
-  /** Override the executionProviders fallback list. */
   executionProviders?: ort.InferenceSession.ExecutionProviderConfig[];
 }
 
 const DEFAULT_PROVIDERS: ort.InferenceSession.ExecutionProviderConfig[] = ['webgpu', 'wasm'];
 
+function softmax3(x: ArrayLike<number>): [number, number, number] {
+  const a = x[0] ?? 0;
+  const b = x[1] ?? 0;
+  const c = x[2] ?? 0;
+  const m = Math.max(a, b, c);
+  const ea = Math.exp(a - m);
+  const eb = Math.exp(b - m);
+  const ec = Math.exp(c - m);
+  const z = ea + eb + ec;
+  return [ea / z, eb / z, ec / z];
+}
+
 export class InferenceEngine {
   private session: ort.InferenceSession | null = null;
   private inputName = 'input';
-  private policyOutputName = 'policy';
-  private valueOutputName = 'value';
+  private policyOutputName = 'policy_logits';
+  private valueOutputName = 'wdl_logits';
   private readonly providers: ort.InferenceSession.ExecutionProviderConfig[];
 
   constructor(options: InferenceEngineOptions = {}) {
@@ -42,7 +60,6 @@ export class InferenceEngine {
     this.providers = options.executionProviders ?? DEFAULT_PROVIDERS;
   }
 
-  /** Loads the ONNX model. Tries WebGPU first, falls back to WASM. */
   async load(modelUrl: string): Promise<void> {
     let lastError: unknown = null;
     for (const provider of this.providers) {
@@ -52,7 +69,6 @@ export class InferenceEngine {
           graphOptimizationLevel: 'all',
         });
         this.session = session;
-        // Auto-detect input/output names if defaults don't match.
         if (!session.inputNames.includes(this.inputName)) {
           const first = session.inputNames[0];
           if (first) this.inputName = first;
@@ -77,7 +93,6 @@ export class InferenceEngine {
     return this.session !== null;
   }
 
-  /** Runs a single forward pass. Input MUST be length 432 in CHW order. */
   async forward(input: Float32Array): Promise<InferenceOutput> {
     if (!this.session) {
       throw new Error('InferenceEngine.forward: model not loaded');
@@ -110,9 +125,28 @@ export class InferenceEngine {
         `InferenceEngine.forward: policy length ${policyData.length} != ${TOTAL_ACTIONS}`,
       );
     }
+
+    let scalarValue: number;
+    let wdl: Float32Array;
+    if (valueData.length === WDL_OUTPUTS) {
+      // New WDL head: convert (W, D, L) logits -> scalar Q = P(W) - P(L).
+      const [pw, , pl] = softmax3(valueData);
+      scalarValue = pw - pl;
+      wdl = new Float32Array(valueData);
+    } else {
+      // Legacy scalar value head (tanh) — keep working for old models.
+      scalarValue = valueData[0] ?? 0;
+      wdl = new Float32Array([
+        Math.max(0, scalarValue),
+        Math.max(0, 1 - Math.abs(scalarValue)),
+        Math.max(0, -scalarValue),
+      ]);
+    }
+
     return {
       policy: new Float32Array(policyData),
-      value: valueData[0] ?? 0,
+      wdl,
+      value: scalarValue,
     };
   }
 }

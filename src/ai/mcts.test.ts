@@ -21,6 +21,7 @@ class StubInferenceEngine {
   async forward(_input: Float32Array): Promise<InferenceOutput> {
     return {
       policy: new Float32Array(TOTAL_ACTIONS), // all zeros -> softmax becomes uniform over legal
+      wdl: new Float32Array([0, 1, 0]), // pure draw distribution
       value: 0,
     };
   }

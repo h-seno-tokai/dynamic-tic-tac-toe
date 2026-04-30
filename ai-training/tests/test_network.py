@@ -9,8 +9,10 @@ torch = pytest.importorskip("torch")
 from dttt_train.network import (  # noqa: E402
     INPUT_CHANNELS,
     TOTAL_ACTIONS,
+    WDL_OUTPUTS,
     DTTTNet,
     make_dummy_input,
+    wdl_to_scalar,
 )
 
 
@@ -21,12 +23,13 @@ def test_forward_shapes(batch_size: int) -> None:
     x = make_dummy_input(batch_size)
     assert x.shape == (batch_size, INPUT_CHANNELS, 4, 4)
     with torch.no_grad():
-        logits, value = net(x)
+        logits, wdl = net(x)
     assert logits.shape == (batch_size, TOTAL_ACTIONS)
-    assert value.shape == (batch_size, 1)
-    # Value head is tanh-bounded.
-    assert torch.all(value >= -1.0)
-    assert torch.all(value <= 1.0)
+    assert wdl.shape == (batch_size, WDL_OUTPUTS)
+    # WDL -> scalar Q in [-1, 1]
+    q = wdl_to_scalar(wdl)
+    assert torch.all(q >= -1.0)
+    assert torch.all(q <= 1.0)
 
 
 def test_forward_with_random_input() -> None:
@@ -34,14 +37,13 @@ def test_forward_with_random_input() -> None:
     net.eval()
     x = torch.randn((4, INPUT_CHANNELS, 4, 4))
     with torch.no_grad():
-        logits, value = net(x)
+        logits, wdl = net(x)
     assert torch.isfinite(logits).all()
-    assert torch.isfinite(value).all()
+    assert torch.isfinite(wdl).all()
 
 
 def test_param_count_in_expected_range() -> None:
-    """Sanity: ~316K params per the design doc (allow generous slack)."""
+    """Sanity: 128ch x 8 blocks - allow generous slack to catch drift."""
     net = DTTTNet()
     n = sum(p.numel() for p in net.parameters())
-    # Doc estimate: ~316K. Allow 200K..500K to catch drastic architecture drift.
-    assert 200_000 < n < 500_000, f"unexpected param count {n}"
+    assert 1_000_000 < n < 3_000_000, f"unexpected param count {n}"
