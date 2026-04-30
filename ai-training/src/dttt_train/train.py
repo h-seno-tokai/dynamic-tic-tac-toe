@@ -33,6 +33,7 @@ import torch.nn.functional as F
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
+from .augment import augment_sample
 from .network import DTTTNet
 from .parallel_selfplay import play_games_parallel
 from .replay_buffer import ReplayBuffer
@@ -97,19 +98,18 @@ def _save_checkpoint(
 
 
 def _load_checkpoint(
-    ckpt_dir: Path,
+    ckpt_path: Path,
     net: DTTTNet,
     optim: torch.optim.Optimizer,
 ) -> int:
-    latest = ckpt_dir / "latest.pt"
-    if not latest.exists():
+    if not ckpt_path.exists():
         return 0
-    state = torch.load(latest, map_location="cpu")
+    state = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     net.load_state_dict(state["model_state"])
     if "optim_state" in state:
         optim.load_state_dict(state["optim_state"])
     step = int(state["step"])
-    logger.info("resumed from %s  (step %d)", latest, step)
+    logger.info("resumed from %s  (step %d)", ckpt_path, step)
     return step
 
 
@@ -135,7 +135,8 @@ def _run_single_process(args: argparse.Namespace) -> None:
     scheduler = CosineAnnealingLR(optim, T_max=max(1, args.total_steps), eta_min=1e-5)
     buffer = ReplayBuffer(capacity=args.replay_capacity)
 
-    start_step = _load_checkpoint(ckpt_dir, net, optim) if args.resume else 0
+    resume_path = Path(args.resume_from) if args.resume_from else (ckpt_dir / "latest.pt" if args.resume else None)
+    start_step = _load_checkpoint(resume_path, net, optim) if resume_path else 0
     if start_step > 0:
         for _ in range(start_step):
             scheduler.step()
@@ -156,7 +157,9 @@ def _run_single_process(args: argparse.Namespace) -> None:
         )
         total_moves = 0
         for game_samples in all_game_samples:
-            buffer.extend(game_samples)
+            for s in game_samples:
+                aug = augment_sample(s[0], s[1], s[2])
+                buffer.extend(aug)
             total_moves += len(game_samples)
         games_played += num_parallel
 
@@ -167,8 +170,9 @@ def _run_single_process(args: argparse.Namespace) -> None:
             )
             continue
 
-        # --- num_parallel gradient steps per game batch (1:1 ratio) ---
-        for _ in range(num_parallel):
+        # --- num_parallel * grad_mult gradient steps per batch ---
+        grad_steps = num_parallel * args.grad_mult
+        for _ in range(grad_steps):
             if train_step >= args.total_steps:
                 break
             states_np, policies_np, values_np = buffer.sample(args.batch_size, rng=rng_buf)
@@ -312,6 +316,10 @@ def main(argv: list[str] | None = None) -> None:
                         help="number of gradient steps (approx = number of game batches after warmup)")
     parser.add_argument("--resume", action="store_true",
                         help="resume from latest.pt in --ckpt-dir if it exists")
+    parser.add_argument("--resume-from", type=str, default=None,
+                        help="path to a specific checkpoint to resume from")
+    parser.add_argument("--grad-mult", type=int, default=8,
+                        help="gradient steps per game = num_parallel * grad_mult (default 8 matches 8x augmentation)")
     parser.add_argument("--num-parallel", type=int, default=16,
                         help="number of games to run simultaneously per step (batched GPU eval)")
     parser.add_argument("--num-workers", type=int, default=0,
