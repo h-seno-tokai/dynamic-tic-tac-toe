@@ -14,6 +14,7 @@
  */
 
 import * as ort from 'onnxruntime-web';
+import './ortConfig';
 import { MAX_BOARD, NUM_CHANNELS, TENSOR_LENGTH, TOTAL_ACTIONS } from './encoding';
 
 const WDL_OUTPUTS = 3;
@@ -32,7 +33,11 @@ export interface InferenceEngineOptions {
   executionProviders?: ort.InferenceSession.ExecutionProviderConfig[];
 }
 
-const DEFAULT_PROVIDERS: ort.InferenceSession.ExecutionProviderConfig[] = ['webgpu', 'wasm'];
+// wasm first: it's universally available; webgpu is best-effort and many
+// browsers (Firefox, older Chromium, anything without an enabled flag)
+// silently fail to register the provider. Trying wasm first gives the
+// fastest path to a working session.
+const DEFAULT_PROVIDERS: ort.InferenceSession.ExecutionProviderConfig[] = ['wasm', 'webgpu'];
 
 function softmax3(x: ArrayLike<number>): [number, number, number] {
   const a = x[0] ?? 0;
@@ -61,7 +66,7 @@ export class InferenceEngine {
   }
 
   async load(modelUrl: string): Promise<void> {
-    let lastError: unknown = null;
+    const errors: string[] = [];
     for (const provider of this.providers) {
       try {
         const session = await ort.InferenceSession.create(modelUrl, {
@@ -83,10 +88,12 @@ export class InferenceEngine {
         }
         return;
       } catch (err) {
-        lastError = err;
+        const providerName = typeof provider === 'string' ? provider : (provider.name ?? 'ep');
+        const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+        errors.push(`[${providerName}] ${msg}`);
       }
     }
-    throw new Error(`InferenceEngine.load failed for all providers: ${String(lastError)}`);
+    throw new Error(`InferenceEngine.load failed for all providers: ${errors.join(' | ')}`);
   }
 
   isReady(): boolean {
