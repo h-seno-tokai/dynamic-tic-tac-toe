@@ -236,10 +236,40 @@ export const PlayPage = () => {
         <div className="flex items-center gap-3">
           <UserAvatar seed={currentAvatarSeed} size={48} label={currentName} />
           <div>
-            <p className="text-sm font-medium text-accent">
-              {mode === 'cpu' ? t('play.cpuMode') : t('play.localMode')}
+            <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium text-accent">
+              <span>{mode === 'cpu' ? t('play.cpuMode') : t('play.localMode')}</span>
               {mode === 'cpu' && cpuDifficulty != null && (
-                <span className="ml-2 text-muted">· {t(`difficulty.level${cpuDifficulty}`)}</span>
+                <span className="text-muted">· {t(`difficulty.level${cpuDifficulty}`)}</span>
+              )}
+              {mode === 'cpu' && (
+                <span
+                  className={
+                    'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ' +
+                    (aiStatus === 'ready'
+                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                      : aiStatus === 'failed'
+                        ? 'bg-red-500/15 text-red-700 dark:text-red-300'
+                        : 'bg-amber-500/15 text-amber-700 dark:text-amber-300')
+                  }
+                  aria-live="polite"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={
+                      'h-2 w-2 rounded-full ' +
+                      (aiStatus === 'ready'
+                        ? 'bg-emerald-500'
+                        : aiStatus === 'failed'
+                          ? 'bg-red-500'
+                          : 'animate-pulse bg-amber-500')
+                    }
+                  />
+                  {aiStatus === 'ready'
+                    ? t('play.aiStatusReady')
+                    : aiStatus === 'failed'
+                      ? t('play.aiStatusFailed')
+                      : t('play.aiStatusLoading')}
+                </span>
               )}
             </p>
             <h1 className="text-2xl font-bold tracking-normal">
