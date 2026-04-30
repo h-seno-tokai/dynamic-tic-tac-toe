@@ -11,7 +11,7 @@ describe('i18n', () => {
   it('exposes Japanese strings under the expected keys', async () => {
     await i18n.changeLanguage('ja');
     expect(i18n.t('title.appName')).toBe('Dynamic Tic-Tac-Toe');
-    expect(i18n.t('result.shoubuari')).toBe('勝負あり！');
+    expect(i18n.t('result.title')).toBe('勝負あり！');
     expect(i18n.t('menu.localPlay')).toBe('2人で対戦');
     expect(i18n.t('preset.p3x3')).toBe('3x3 クラシック');
     expect(i18n.t('settings.themeDark')).toBe('ダーク');
@@ -21,7 +21,7 @@ describe('i18n', () => {
   it('switches all keys to English when changeLanguage("en") is called', async () => {
     await i18n.changeLanguage('en');
     expect(i18n.t('title.appName')).toBe('Dynamic Tic-Tac-Toe');
-    expect(i18n.t('result.shoubuari')).toBe('Game over!');
+    expect(i18n.t('result.title')).toBe("It's decided!");
     expect(i18n.t('menu.localPlay')).toBe('Local 2-Player');
     expect(i18n.t('preset.p3x3')).toBe('3x3 Classic');
     expect(i18n.t('settings.themeDark')).toBe('Dark');
