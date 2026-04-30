@@ -238,6 +238,9 @@ export const PlayPage = () => {
           <div>
             <p className="text-sm font-medium text-accent">
               {mode === 'cpu' ? t('play.cpuMode') : t('play.localMode')}
+              {mode === 'cpu' && cpuDifficulty != null && (
+                <span className="ml-2 text-muted">· {t(`difficulty.level${cpuDifficulty}`)}</span>
+              )}
             </p>
             <h1 className="text-2xl font-bold tracking-normal">
               {t('play.turn', { name: currentName })}
