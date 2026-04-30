@@ -24,8 +24,16 @@ export type { MctsOptions } from './mcts';
 export { selectFallbackMove } from './fallbackAi';
 export type { FallbackRandom } from './fallbackAi';
 
-export { DIFFICULTY_PROFILES, getProfile } from './difficulty';
-export type { DifficultyProfile } from './difficulty';
+export {
+  DIFFICULTY_PROFILES,
+  DIFFICULTY_PROFILES_3X3,
+  getProfile,
+  getProfile3x3,
+} from './difficulty';
+export type { Difficulty3x3Profile, Difficulty4x4Profile, DifficultyProfile } from './difficulty';
+
+export { Solver3x3 } from './solver3x3';
+export type { Solver3x3Options } from './solver3x3';
 
 export { AiClient } from './workerClient';
 export type { AiClientOptions } from './workerClient';
