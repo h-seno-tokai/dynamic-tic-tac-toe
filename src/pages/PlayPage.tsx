@@ -13,7 +13,46 @@ import { useGameStore, useSessionStore, useStatsStore } from '@/stores';
 
 const MODEL_URL = `${import.meta.env.BASE_URL}model.onnx`;
 
-type Selection = { kind: 'reserve'; sizeId: string } | { kind: 'board'; from: Position } | null;
+export type Selection =
+  | { kind: 'reserve'; sizeId: string }
+  | { kind: 'board'; from: Position }
+  | null;
+
+/**
+ * Possible UI events that can change selection.
+ * - 'clickReserve': user clicked a reserve pile of their own.
+ * - 'clickOwnBoardPiece': user clicked a visible piece of their own on the board.
+ */
+export type SelectionInput =
+  | { kind: 'clickReserve'; sizeId: string }
+  | { kind: 'clickOwnBoardPiece'; pos: Position };
+
+/**
+ * Pure reducer used for piece-(re)selection UX. Given the current selection
+ * and the user's click on a *selectable* piece (reserve pile or own board
+ * piece), compute the next selection.
+ *
+ * Semantics:
+ * - Clicking the same target that is already selected clears the selection.
+ * - Clicking a different selectable target replaces the selection.
+ *
+ * Note: clicks on empty/enemy cells (i.e. potential placement/movement
+ * targets) are NOT handled here — they are dispatched as moves by the page
+ * directly. This helper only decides selection changes.
+ */
+export function computeNextSelection(current: Selection, input: SelectionInput): Selection {
+  if (input.kind === 'clickReserve') {
+    if (current?.kind === 'reserve' && current.sizeId === input.sizeId) {
+      return null; // toggle off
+    }
+    return { kind: 'reserve', sizeId: input.sizeId };
+  }
+  // clickOwnBoardPiece
+  if (current?.kind === 'board' && samePosition(current.from, input.pos)) {
+    return null; // toggle off
+  }
+  return { kind: 'board', from: input.pos };
+}
 
 function samePosition(a: Position, b: Position): boolean {
   return a.row === b.row && a.col === b.col;
@@ -74,10 +113,18 @@ export const PlayPage = () => {
     const curr = currentGame?.outcome;
     if ((prev === null || prev === undefined) && curr != null) {
       setShowResult(true);
-      playSfx('fanfare');
-      if (mode === 'cpu' && cpuDifficulty != null) {
+      if (mode === 'cpu' && humanSide != null) {
         const outcome = curr === 'draw' ? 'draw' : curr === humanSide ? 'win' : 'loss';
-        recordGame(cpuDifficulty, outcome);
+        // CPU mode SFX: win → win, loss → lose, draw → fanfare (neutral).
+        if (outcome === 'win') playSfx('win');
+        else if (outcome === 'loss') playSfx('lose');
+        else playSfx('fanfare');
+        if (cpuDifficulty != null) {
+          recordGame(cpuDifficulty, outcome);
+        }
+      } else {
+        // Local 2P: keep existing fanfare on every outcome.
+        playSfx('fanfare');
       }
     }
     prevOutcomeRef.current = curr;
@@ -149,6 +196,17 @@ export const PlayPage = () => {
   const winnerName = outcome === 'draw' || outcome == null ? null : resolveName(outcome);
   const winnerAvatarSeed = outcome === 'draw' || outcome == null ? null : resolveAvatar(outcome);
 
+  // For CPU mode we show a different overlay. Compute the user-perspective
+  // result here so the JSX below stays simple.
+  const cpuResult: 'win' | 'loss' | 'draw' | null =
+    mode === 'cpu' && humanSide != null && outcome != null
+      ? outcome === 'draw'
+        ? 'draw'
+        : outcome === humanSide
+          ? 'win'
+          : 'loss'
+      : null;
+
   const highlight = legalMoves
     .filter((move) => {
       if (selection?.kind === 'reserve') {
@@ -177,6 +235,24 @@ export const PlayPage = () => {
   const handleCellClick = (pos: Position) => {
     if (isCpuTurn) return;
 
+    const isOwnPiece = topOwnerAt(currentGame, pos) === currentGame.toMove;
+
+    // Clicking a selectable own board piece: toggle/switch selection.
+    // This applies regardless of current selection (reserve / board / none).
+    if (isOwnPiece) {
+      const next = computeNextSelection(selection, { kind: 'clickOwnBoardPiece', pos });
+      setSelection(next);
+      if (next === null) {
+        playSfx('undo');
+        setMessage(t('play.deselect'));
+      } else {
+        playSfx('pickup');
+        setMessage(t('play.moveMsg'));
+      }
+      return;
+    }
+
+    // Otherwise, the click is treated as a move/place target.
     if (selection?.kind === 'reserve') {
       tryApply({
         kind: 'placeFromReserve',
@@ -188,11 +264,6 @@ export const PlayPage = () => {
     }
 
     if (selection?.kind === 'board') {
-      if (samePosition(selection.from, pos)) {
-        setSelection(null);
-        setMessage(t('play.deselect'));
-        return;
-      }
       tryApply({
         kind: 'moveOnBoard',
         player: currentGame.toMove,
@@ -202,20 +273,20 @@ export const PlayPage = () => {
       return;
     }
 
-    if (topOwnerAt(currentGame, pos) === currentGame.toMove) {
-      playSfx('pickup');
-      setSelection({ kind: 'board', from: pos });
-      setMessage(t('play.moveMsg'));
-    } else {
-      setMessage(t('play.selectFirst'));
-    }
+    setMessage(t('play.selectFirst'));
   };
 
   const handleReserveSelect = (sizeId: string) => {
     if (isCpuTurn) return;
-    playSfx('pickup');
-    setSelection({ kind: 'reserve', sizeId });
-    setMessage(t('play.placeMsg'));
+    const next = computeNextSelection(selection, { kind: 'clickReserve', sizeId });
+    setSelection(next);
+    if (next === null) {
+      playSfx('undo');
+      setMessage(t('play.deselect'));
+    } else {
+      playSfx('pickup');
+      setMessage(t('play.placeMsg'));
+    }
   };
 
   const handleRematch = () => {
@@ -428,7 +499,13 @@ export const PlayPage = () => {
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
               >
-                {t('result.title')}
+                {cpuResult === 'win'
+                  ? t('result.cpuWinTitle')
+                  : cpuResult === 'loss'
+                    ? t('result.cpuLossTitle')
+                    : cpuResult === 'draw'
+                      ? t('result.cpuDrawTitle')
+                      : t('result.title')}
               </motion.h2>
 
               <motion.div
@@ -437,7 +514,13 @@ export const PlayPage = () => {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3, duration: 0.3 }}
               >
-                {outcome === 'draw' ? (
+                {cpuResult === 'win' ? (
+                  <p className="text-lg text-muted">{t('result.cpuWinSubtitle')}</p>
+                ) : cpuResult === 'loss' ? (
+                  <p className="text-lg text-muted">{t('result.cpuLossSubtitle')}</p>
+                ) : cpuResult === 'draw' ? (
+                  <p className="text-lg text-muted">{t('result.cpuDrawSubtitle')}</p>
+                ) : outcome === 'draw' ? (
                   <p className="text-2xl font-semibold">{t('result.draw')}</p>
                 ) : (
                   <div className="flex items-center gap-4">

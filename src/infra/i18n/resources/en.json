@@ -75,7 +75,13 @@
     "draw": "Draw",
     "rematch": "Rematch",
     "backToMenu": "Back to menu",
-    "viewBoard": "View board"
+    "viewBoard": "View board",
+    "cpuWinTitle": "Congratulations!",
+    "cpuWinSubtitle": "You beat the AI.",
+    "cpuLossTitle": "Better luck next time!",
+    "cpuLossSubtitle": "You'll get it next round.",
+    "cpuDrawTitle": "Draw",
+    "cpuDrawSubtitle": "An even match against the AI."
   },
   "menu": {
     "localPlay": "Local 2-Player",

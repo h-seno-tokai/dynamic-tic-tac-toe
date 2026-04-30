@@ -75,7 +75,13 @@
     "draw": "引き分け",
     "rematch": "再戦",
     "backToMenu": "メニューへ",
-    "viewBoard": "盤面を見る"
+    "viewBoard": "盤面を見る",
+    "cpuWinTitle": "おめでとう！",
+    "cpuWinSubtitle": "AIに勝利しました。",
+    "cpuLossTitle": "残念！",
+    "cpuLossSubtitle": "次は勝てるはずです。",
+    "cpuDrawTitle": "引き分け",
+    "cpuDrawSubtitle": "AIと互角の戦いでした。"
   },
   "menu": {
     "localPlay": "2人で対戦",
