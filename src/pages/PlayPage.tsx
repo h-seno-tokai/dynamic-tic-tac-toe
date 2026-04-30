@@ -11,7 +11,7 @@ import { engine, type GameState, type Move, type Position } from '@/domain';
 import { playBgm, playSfx, stopBgm } from '@/infra';
 import { useGameStore, useSessionStore, useStatsStore } from '@/stores';
 
-const MODEL_URL = '/model.onnx';
+const MODEL_URL = `${import.meta.env.BASE_URL}model.onnx`;
 
 type Selection = { kind: 'reserve'; sizeId: string } | { kind: 'board'; from: Position } | null;
 
@@ -45,7 +45,7 @@ export const PlayPage = () => {
   const [message, setMessage] = useState('');
   const [invalidFlash, setInvalidFlash] = useState(false);
   const [showResult, setShowResult] = useState(false);
-  const [aiReady, setAiReady] = useState(false);
+  const [aiStatus, setAiStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   const prevOutcomeRef = useRef(currentGame?.outcome);
   const aiClientRef = useRef<AiClient | null>(null);
 
@@ -56,12 +56,13 @@ export const PlayPage = () => {
 
   useEffect(() => {
     if (mode !== 'cpu') return;
+    setAiStatus('loading');
     const client = new AiClient(MODEL_URL);
     aiClientRef.current = client;
     client
       .ready()
-      .then(() => setAiReady(true))
-      .catch(() => setAiReady(false));
+      .then(() => setAiStatus('ready'))
+      .catch(() => setAiStatus('failed'));
     return () => {
       client.dispose();
       aiClientRef.current = null;
@@ -91,7 +92,7 @@ export const PlayPage = () => {
     const runCpuTurn = async () => {
       const client = aiClientRef.current;
       let move: Move;
-      if (client && aiReady) {
+      if (client && aiStatus === 'ready') {
         try {
           move = await client.requestMove(currentGame, cpuDifficulty ?? 5);
         } catch {
@@ -112,7 +113,7 @@ export const PlayPage = () => {
       cancelled = true;
       aiClientRef.current?.cancel();
     };
-  }, [isCpuTurn, currentGame, cpuDifficulty, applyMove, aiReady]);
+  }, [isCpuTurn, currentGame, cpuDifficulty, applyMove, aiStatus]);
 
   const legalMoves = useMemo(
     () => (currentGame ? engine.legalMoves(currentGame) : []),
@@ -243,9 +244,11 @@ export const PlayPage = () => {
             </h1>
             <p role="status" className="mt-1 text-sm text-muted">
               {isCpuTurn
-                ? aiReady
+                ? aiStatus === 'ready'
                   ? t('play.aiThinking')
-                  : t('play.aiLoading')
+                  : aiStatus === 'failed'
+                    ? t('play.aiFallbackThinking')
+                    : t('play.aiLoading')
                 : message || t('play.chooseMsg')}
             </p>
           </div>
@@ -276,6 +279,15 @@ export const PlayPage = () => {
           </Button>
         </div>
       </header>
+
+      {mode === 'cpu' && aiStatus === 'failed' && (
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-amber-500/60 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200"
+        >
+          {t('play.aiFallbackBanner')}
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <section className="grid gap-4">

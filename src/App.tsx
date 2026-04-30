@@ -29,18 +29,21 @@ export const App = () => {
   const sfxVolume = useSettingsStore((s) => s.sfxVolume);
 
   useEffect(() => {
+    // Prefix every asset URL with Vite's BASE_URL so they resolve correctly
+    // when the app is hosted under a sub-path (GitHub Pages: /dynamic-tic-tac-toe/).
+    const base = import.meta.env.BASE_URL;
     audioService.init({
-      bgm: { game: '/audio/bgm/whip.mp3' },
+      bgm: { game: `${base}audio/bgm/whip.mp3` },
       sfx: {
-        pickup: '/audio/sfx/pickup.mp3',
-        place: '/audio/sfx/place.mp3',
-        undo: '/audio/sfx/undo.mp3',
-        start: '/audio/sfx/start.mp3',
-        fanfare: '/audio/sfx/fanfare.mp3',
-        win: '/audio/sfx/win.mp3',
-        lose: '/audio/sfx/lose.mp3',
-        button: '/audio/sfx/button.mp3',
-        invalid: '/audio/sfx/invalid.mp3',
+        pickup: `${base}audio/sfx/pickup.mp3`,
+        place: `${base}audio/sfx/place.mp3`,
+        undo: `${base}audio/sfx/undo.mp3`,
+        start: `${base}audio/sfx/start.mp3`,
+        fanfare: `${base}audio/sfx/fanfare.mp3`,
+        win: `${base}audio/sfx/win.mp3`,
+        lose: `${base}audio/sfx/lose.mp3`,
+        button: `${base}audio/sfx/button.mp3`,
+        invalid: `${base}audio/sfx/invalid.mp3`,
       },
     });
 

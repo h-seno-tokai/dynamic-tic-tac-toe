@@ -46,6 +46,8 @@
     "turn": "{{name}} の手番",
     "aiThinking": "AI が考えています…",
     "aiLoading": "AI モデル読み込み中…",
+    "aiFallbackThinking": "簡易 CPU が考えています…",
+    "aiFallbackBanner": "AI モデルを読み込めなかったため、簡易 CPU で対戦を続行します。",
     "chooseMsg": "手駒か盤上の自分の駒を選んでください。",
     "moveMsg": "移動先を選んでください。",
     "placeMsg": "配置先を選んでください。",

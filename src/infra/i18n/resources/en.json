@@ -46,6 +46,8 @@
     "turn": "{{name}}'s turn",
     "aiThinking": "AI is thinking…",
     "aiLoading": "Loading AI model…",
+    "aiFallbackThinking": "Fallback CPU is thinking…",
+    "aiFallbackBanner": "Could not load the AI model. Continuing with a simple fallback opponent.",
     "chooseMsg": "Choose a piece from reserve or board.",
     "moveMsg": "Choose a destination.",
     "placeMsg": "Choose where to place it.",
