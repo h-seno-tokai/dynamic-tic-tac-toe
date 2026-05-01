@@ -64,8 +64,10 @@
 - CPU応答時間
   - 弱AI（難易度1）: 約1秒
   - 最強AI（難易度10）: 約10秒（モバイル環境含む）
-- 初回ページロード: **10MB 以内**（ゲーム本体のみ）。ONNX Runtime WASM（~24MB）+ モデル重み（~9.6MB）はCPUモード選択時に遅延ロードされる。
-  - うちモデル重み: ~9.6MB（float32、8×128ch ResNet）
+- 初回ページロード: **10MB 以内**（ゲーム本体のみ）。
+  - 3x3 CPU は ONNX 不使用（alpha-beta 解析、TS 内蔵）→ 追加ロードなし
+  - 4x4 CPU は **初回 4x4 リクエスト時に** ONNX Runtime WASM（~24MB）+ モデル重みを遅延ロード
+  - モデル重み: 約 **3.92 MB**（float32、4x4 専用 6×96ch ResNet）
 
 ### 4.2 対応環境
 
@@ -146,38 +148,48 @@
 
 ## 7. CPU・強化学習方針（要約）
 
-詳細は `07_ai_design.md`。
+詳細は `07_ai_design.md`。**盤面サイズで 2 系統に分割**。
 
-- アルゴリズム: AlphaZero系（自己対戦のみ・完全教師無し）
-- 学習: PyTorch + RTX 2080 でオフライン
-- 推論: ONNX Runtime Web（ブラウザ）
+### 7.1 3x3（alpha-beta 解析）
+
+- アルゴリズム: alpha-beta + 反復深化 + Zobrist 置換表 + PV/静的順序付 + 協調的 abort
+- 実装: `src/ai/solver3x3.ts`（純 TypeScript、ONNX 不使用）
+- 学習なし（オンライン探索のみ）
+- 難易度: `timeBudgetMs`（10ms..10s）+ `mistakeRate`（0..0.7）で 10 段階
+
+### 7.2 4x4（AlphaZero 系）
+
+- アルゴリズム: AlphaZero 系（自己対戦のみ・完全教師無し）
+- ネット: 4x4 専用 6×96ch ResNet（~1.0M params, ONNX ~3.92 MB）
+- 学習: PyTorch + RTX 2080（`ai-training/src/dttt_train_4x4/`）
+- 推論: ONNX Runtime Web（ブラウザ、初回 4x4 リクエスト時に遅延ロード）
 - MCTS: TypeScript で自前実装、Web Worker で実行
-- 1ネットワークから 10段階の難易度を派生（チェックポイント・シミュレーション数・温度で制御）
+- 難易度: 単一ネットから sim 数 + 温度で 10 段階を派生
 
 ## 8. 主要設計決定事項
 
 - スコープ: オンライン対戦・ログイン無し
 - 対応プラットフォーム: PC + モバイル（モダンブラウザ最新版）
 - CPU 応答時間: 弱 1 秒 / 強 10 秒
-- 強化学習: AlphaZero 系（自己対戦のみ）
-- 推論ランタイム: ONNX Runtime Web（ブラウザ内推論）
+- CPU アルゴリズム: **3x3 = alpha-beta 解析（ONNX 不使用） / 4x4 = AlphaZero 系（自己対戦のみ）**
+- 推論ランタイム: 4x4 のみ ONNX Runtime Web（ブラウザ内推論、遅延ロード）
 - ホスティング: GitHub Pages
 - 戦績保存: localStorage（手順履歴の永続化なし）
 - テーマ: ダーク / ライト（OS 設定尊重）
 - チュートリアル: v1 未実装、ルール説明画面で代替
 - 多言語: 日本語 / 英語
 - アクセシビリティ: WCAG 2.1 AA レベル目標
-- 初回ロード: ゲーム本体 10 MB 以内。モデル重みは CPU 選択時に遅延ロード
+- 初回ロード: ゲーム本体 10 MB 以内。4x4 モデル重み（~4 MB）は初回 4x4 リクエスト時に遅延ロード（3x3 はモデル不要）
 - ルールプリセット: 2 種固定（3×3 クラシック / 4×4 巨大入り）
 - 完全カスタム UI: 提供しない（コード上は `GameRules` 駆動で将来拡張可）
 - CPU 難易度段階数: 10 段階
 - フロントエンドフレームワーク: React + TypeScript（詳細は `04_tech_stack.md`）
 - アーキテクチャ: 完全クライアント完結 SPA（詳細は `03_architecture.md`）
 - ゲームルール: 勝利条件 / 引き分け条件 / 覆い被せ / 盤外スタック仕様（6.3 参照）
-- CPU: ユニバーサル CNN で両プリセット対応
+- CPU: 盤面サイズ別に分割（3x3 = alpha-beta、4x4 = AlphaZero 4x4 専用ネット）
 - ユーザーアバター: DiceBear Avataaars
 - CPU アバター: DiceBear Avataaars（seed: "cpu-robot"）
-- AlphaZero ネットワーク: 4×4×27 入力 / ResNet 8×128ch / 約 2.4M params / ~9.6 MB ONNX（float32）
+- AlphaZero ネットワーク（4x4 専用）: (1, 27, 4, 4) 入力 / ResNet 6×96ch / 約 1.03M params / ~3.92 MB ONNX（float32） / Value head は WDL 3 ロジット
 - BGM: DOVA「Whip」by しゃろう / SFX: 効果音ラボ統一セット
 - UI アニメーション: Framer Motion（spring / fade、`prefers-reduced-motion` 対応）
 - 結果演出: PlayPage 内モーダルオーバーレイ（独立ルートなし）

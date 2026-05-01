@@ -241,27 +241,27 @@ export interface GameEngine {
 - `WinCondition` を ADT にして将来の拡張（斜め禁止・対角線必須・カウント方式等）を許す。
 - 既定は `lineOfN` で N = boardSize に合わせる。
 
-## 4. AlphaZero との接続
+## 4. AI との接続
 
-### 4.1 入力テンソル化（ユニバーサルネットワーク方式）
+3x3 と 4x4 で別経路（詳細は `07_ai_design.md`）:
 
-- 入力次元は **固定形状** `MAX_BOARD × MAX_BOARD × C`（MAX_BOARD = 4）
-- 2 プリセットを単一モデルで扱う:
-  - **3x3 プリセット**: 盤外マス・XL サイズを mask チャネルで不可侵化
-  - **4x4 巨大入り**: 全 MAX 範囲を使用
-- アーキテクチャは Fully Convolutional Network（CNN）。Transformer は不採用。
-- 詳細は `07_ai_design.md` 1.4 参照
+- **3x3**: ニューラルネット非使用。`Solver3x3`（alpha-beta + Zobrist TT）が `GameState` を直接読む
+- **4x4**: AlphaZero 系（4x4 専用 6×96ch CNN）+ MCTS
 
-### 4.2 行動空間（固定）
+### 4.1 4x4 入力テンソル化
 
-- 行動空間は **固定 320 次元**（MAX_PIECE_SIZES × MAX_BOARD² + MAX_BOARD⁴ = 4 × 16 + 256）
+- 形状 **(1, 27, 4, 4)**（旧ユニバーサル設計の MAX_BOARD=4 形状を流用）
+- ch 25 (out-of-board) と ch 26 (unused-size) は **4x4 では常時 0、退化チャネル**
+  - 互換性のため形状は維持。stem の追加重み ~1.7K（全パラメータの 0.07%）で誤差
+- アーキテクチャは Fully Convolutional Network（CNN）。Transformer は不採用
+
+### 4.2 4x4 行動空間（固定 320 次元）
+
 - 内訳:
   - PlaceFromReserve: 4 × 16 = 64
   - MoveOnBoard: 16 × 16 = 256
-- 各ルールでは合法でない行動を **−∞ マスク** して softmax にかける
-- プリセット別の有効行動数:
-  - 3x3 プリセット: 27 + 81 = 108 / 320
-  - 4x4 巨大入り: 320 / 320（全有効）
+- 合法でない行動は **−∞ マスク** を ONNX グラフ外（TS 側）で適用 → softmax / argmax
+- 4x4 巨大入り: 320 / 320（全有効）
 
 ## 5. localStorage スキーマ
 
@@ -302,6 +302,6 @@ interface PersistedSession {
 - 覆い被せ: `allowSameSizeCover: false` / `allowSelfCover: true`（標準 Gobblet 準拠）
 - 盤外スタック: サイズ別カウントのみ
 - ルール選択: **2 プリセット固定**（PRESET_3X3 / PRESET_4X4_XL）。完全カスタム UI は提供しない
-- AI: 単一ユニバーサル CNN で両プリセットをカバー（4×4×27 入力 / ResNet 4×64）
+- AI: 盤面サイズで分割（3x3 = `Solver3x3` alpha-beta、4x4 = AlphaZero 4x4 専用 CNN (1, 27, 4, 4) 入力 / ResNet 6×96ch）
 - リプレイ永続化: **不要**。戦績のみ localStorage 保存
 - 同一局面の検出: 局面ハッシュ（盤面 + 手駒残数 + 手番）を canonical 文字列化して使用

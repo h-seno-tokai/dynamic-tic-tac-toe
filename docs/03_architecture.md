@@ -36,17 +36,23 @@ flowchart TB
 ### 2.2 AI
 
 - **Web Worker** で実行。メインスレッドをブロックしない。
-- 構成:
-  - MCTS 探索ループ（TypeScript 自前実装）
-  - ONNX Runtime Web による Policy / Value 推論
-  - 難易度パラメータに応じた振る舞い（チェックポイント・シミュレーション数・温度）
+- **盤面サイズで内部ディスパッチ**（`src/ai/worker/aiWorker.ts`、詳細は `07_ai_design.md`）:
+  - `state.rules.boardSize === 3` → `Solver3x3`（alpha-beta + 反復深化 + Zobrist TT）。ONNX 不使用
+  - `state.rules.boardSize === 4` → `InferenceEngine` + `MCTS`（ONNX Runtime Web で Policy/Value 推論）
+- **ONNX は遅延ロード**: `init` メッセージはモデル URL を記録し **即 `ready` を返す**。
+  実際のモデルロードは初回 4x4 リクエスト時に走る。これにより
+  ORT-Web の wasm / モデルファイルがロード失敗しても 3x3 の対局は継続できる。
+  失敗時は in-flight プロミスをクリアし、次の 4x4 リクエストで再試行する（一過性の障害は自己回復）。
 - メインスレッドとは `postMessage` で対話：
   - `request: { requestId, state, stateHash, difficulty, timeBudgetMs }`
   - `response: { requestId, move, thinkingMs, principalVariation }`
+  - `init: { modelUrl }` / `ready` / `error: { requestId, error }` / `abort`
 - 思考の中断 (abort signal) に対応（投了・ウィンドウ閉じ時）
 - **レースコンディション対策**: 「待った」で局面が巻き戻った直後に古い思考結果が返る可能性があるため、
   メインスレッド側は応答の `requestId` を現在の最新リクエスト ID と照合し、stale な応答は無条件で破棄する。
   併せて `stateHash` も比較して二重ガードする。
+- **ORT-Web wasm パス**: `src/ai/ortConfig.ts` で `ort.env.wasm.wasmPaths` を Vite の `?url` import で
+  絶対 URL に固定。Vite SPA フォールバックが wasm 取得に HTML を返す問題（`10_risks.md` 参照）を防ぐ。
 
 ### 2.3 Application（状態管理）
 
@@ -63,6 +69,7 @@ flowchart TB
 - 関数コンポーネント + Hooks のみ
 - 重い計算は Domain / AI に委譲。コンポーネントは表示と入力に集中
 - Routing: `react-router-dom` の **HashRouter**（GitHub Pages のディープリンク制限を回避）
+- 駒選択は **toggle / replace** 動作: 同じ駒を再クリックで選択解除、別の駒をクリックで切替（`05_ui_design.md` §3 参照）
 
 ### 2.5 Infrastructure
 
