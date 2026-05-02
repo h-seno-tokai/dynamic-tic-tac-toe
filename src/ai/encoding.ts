@@ -1,12 +1,17 @@
 /**
- * TS mirror of `ai-training/src/dttt_train/encoding.py`.
+ * TS mirror of `ai-training/src/dttt_train_4x4/encoding.py`.
  *
- * Encodes a `GameState` into the universal-network input tensor (27, 4, 4)
- * stored CHW-flat as a `Float32Array` of length 432, and provides legal-action
- * mask + bidirectional move <-> action-index conversion.
+ * Encodes a `GameState` into the 4x4 AlphaZero network's input tensor
+ * (27, 4, 4), stored CHW-flat as a `Float32Array` of length 432, and provides
+ * the legal-action mask + bidirectional move <-> action-index conversion.
  *
  * The numeric layout MUST stay in lock-step with the Python module so that the
  * exported ONNX weights see identical tensors at training and inference time.
+ *
+ * Channels 25 (out-of-board) and 26 (unused-size) are vestigial holdovers from
+ * the original universal-network design and are always zero on the 4x4 board;
+ * the shape is preserved so the existing TS encoding + augmentation code paths
+ * can be reused without an off-by-one rewrite.
  */
 
 import type { GameState, Move, MoveOnBoardMove, PlaceFromReserveMove } from '@/domain';

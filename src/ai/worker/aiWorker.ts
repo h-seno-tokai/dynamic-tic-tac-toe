@@ -3,7 +3,7 @@
  *
  * Dispatches by `state.rules.boardSize`:
  *   - 3 → strong alpha-beta solver (`Solver3x3`); does not require ONNX init.
- *   - 4 → universal-network MCTS via `InferenceEngine` + `MCTS`. ONNX is
+ *   - 4 → 4x4 AlphaZero net via `InferenceEngine` + `MCTS`. ONNX is
  *         loaded lazily on the first 4x4 request so a transient model-load
  *         failure does not break the 3x3 path.
  *

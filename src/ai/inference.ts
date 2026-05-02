@@ -1,7 +1,7 @@
 /**
- * ONNX Runtime Web wrapper for the universal DTTT network.
+ * ONNX Runtime Web wrapper for the 4x4 AlphaZero network.
  *
- * Forward signature mirrors `ai-training/src/dttt_train/network.py`:
+ * Forward signature mirrors `ai-training/src/dttt_train_4x4/network.py`:
  *   input  : Float32Array of length 27*4*4 = 432, shape (1, 27, 4, 4)
  *   output : {
  *     policy : Float32Array(320) raw policy logits  (no mask, no softmax)

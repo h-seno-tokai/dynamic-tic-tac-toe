@@ -49,14 +49,19 @@ export const RULE_PRESETS = [
 
 export type RulePresetId = (typeof RULE_PRESETS)[number]['id'];
 
-/** Upper limits the universal AI network supports (frozen at training). */
+/**
+ * Upper limits the 4x4 AlphaZero network was trained against (frozen at
+ * training). The 3x3 path uses the alpha-beta solver and is unconstrained by
+ * these, but the 4x4 ONNX graph has a fixed (1, 27, 4, 4) input shape and a
+ * 320-d action space, so any rules sent to the network must fit inside.
+ */
 export const AI_LIMITS = {
   MAX_BOARD: 4,
   MAX_PIECE_SIZES: 4,
   MAX_PIECES_PER_SIZE: 3,
 } as const;
 
-/** Returns true when the rules fit inside the AI's universal network. */
+/** Returns true when the rules fit inside the 4x4 network's input/action shape. */
 export function isRuleSupportedByAI(rules: GameRules): boolean {
   return (
     rules.boardSize <= AI_LIMITS.MAX_BOARD &&

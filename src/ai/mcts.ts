@@ -1,5 +1,5 @@
 /**
- * AlphaZero-style PUCT MCTS over the universal DTTT network.
+ * AlphaZero-style PUCT MCTS over the 4x4 ResNet (3x3 uses Solver3x3 instead).
  *
  * Tree node contract:
  *   N : visit count
